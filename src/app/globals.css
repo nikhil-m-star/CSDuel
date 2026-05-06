@@ -181,45 +181,8 @@
   --topic-color: #8b5cf6;
 }
 
-/* Clerk component overrides */
-.cl-card {
-  background: rgba(17, 24, 39, 0.8) !important;
-  border: 1px solid rgba(255, 255, 255, 0.06) !important;
-  backdrop-filter: blur(16px) !important;
-}
-
-.cl-headerTitle,
-.cl-headerSubtitle,
-.cl-socialButtonsBlockButtonText,
-.cl-formFieldLabel,
-.cl-footerActionText {
-  color: #f1f5f9 !important;
-}
-
+/* Clerk component overrides - handled via layout.tsx elements mostly, but keeping base card tweak */
 .cl-internal-b3fm6y {
-  background: rgba(17, 24, 39, 0.8) !important;
-}
-/* Clerk Global Overrides - Force White Text */
-.cl-userButtonPopoverActionButtonText, 
-.cl-userPreviewMainIdentifier, 
-.cl-userPreviewSecondaryIdentifier, 
-.cl-headerTitle, 
-.cl-headerSubtitle,
-.cl-socialButtonsBlockButtonText,
-.cl-formFieldLabel,
-.cl-formFieldInput,
-.cl-identityPreviewText,
-.cl-footerActionLink,
-.cl-formButtonPrimary,
-.cl-userButtonOuterIdentifier {
-  color: white !important;
+  background: #000000 !important;
 }
 
-.cl-userPreviewSecondaryIdentifier, .cl-headerSubtitle {
-  opacity: 0.7;
-}
-
-.cl-card, .cl-userButtonPopoverCard {
-  background-color: black !important;
-  border: 1px solid #222 !important;
-}
