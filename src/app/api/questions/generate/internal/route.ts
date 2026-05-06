@@ -27,7 +27,7 @@ export async function POST(req: Request) {
         questions: {
           create: questions.map((q, i) => ({
             topic: "Mixed",
-            questionText: q.questionText,
+            questionText: q.question,
             options: q.options,
             correctAnswer: q.correctAnswer,
             explanation: q.explanation,
