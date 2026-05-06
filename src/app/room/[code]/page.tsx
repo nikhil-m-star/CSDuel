@@ -38,6 +38,11 @@ export default function RoomPage() {
   const answerTimeRef = useRef<number>(0);
 
   const myUserId = useRef<string>("");
+  const phaseRef = useRef(phase);
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
 
   const fetchRoomData = useCallback(async () => {
     if(!code) return;
@@ -76,7 +81,7 @@ export default function RoomPage() {
       socket.on("connect",()=>{socket.emit("join-room",code);});
       socket.on("room-update",(data:{players:Player[];status:string})=>{
         setRoomData(prev=>prev?{...prev,players:data.players,status:data.status}:prev);
-        if(data.status==="IN_PROGRESS"&&phase==="waiting"){setPhase("countdown");}
+        if(data.status==="IN_PROGRESS"&&phaseRef.current==="waiting"){setPhase("countdown");}
       });
       socket.on("duel-start",async ()=>{
         await fetchRoomData();
@@ -87,9 +92,9 @@ export default function RoomPage() {
         if(data.questionIndex!==undefined) setCurrentQ(data.questionIndex);
       });
       socket.on("score-update",(data:{scores:{[userId:string]:number}})=>{
-        const myId = myUserId.current;
+        const myClerkId = clerkUser?.id;
         Object.entries(data.scores).forEach(([uid,score])=>{
-          if(uid===myId) setMyScore(score as number);
+          if(uid===myClerkId) setMyScore(score as number);
           else setOpponentScore(score as number);
         });
       });
@@ -192,10 +197,24 @@ export default function RoomPage() {
               )}
             </div>
           </div>
-          {(roomData?.players?.length||0)>=2&&(
-            <button onClick={startDuel} disabled={isGenerating} className="mt-8 px-8 py-4 rounded-3xl bg-primary text-white font-bold hover:bg-primary-dark disabled:opacity-50 flex items-center gap-2 mx-auto cursor-pointer transition-all">
-              {isGenerating?<><Loader2 className="w-5 h-5 animate-spin"/>Generating Questions...</>:<><Zap className="w-5 h-5"/>Start Duel</>}
-            </button>
+          {(roomData?.players?.length || 0) >= 2 && (
+            roomData?.players[0].user.clerkId === clerkUser?.id ? (
+              <button 
+                onClick={startDuel} 
+                disabled={isGenerating} 
+                className="mt-8 px-8 py-4 rounded-3xl bg-primary text-white font-bold hover:bg-primary-dark disabled:opacity-50 flex items-center gap-2 mx-auto cursor-pointer transition-all shadow-[0_0_30px_rgba(255,46,91,0.2)]"
+              >
+                {isGenerating ? (
+                  <><Loader2 className="w-5 h-5 animate-spin"/>Generating Questions...</>
+                ) : (
+                  <><Zap className="w-5 h-5"/>Start Duel</>
+                )}
+              </button>
+            ) : (
+              <div className="mt-8 p-4 rounded-2xl bg-surface/50 border border-border/50 text-text-secondary text-sm font-medium">
+                Waiting for host to start the duel...
+              </div>
+            )
           )}
         </motion.div>
       </main>
