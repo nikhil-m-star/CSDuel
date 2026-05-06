@@ -1,93 +1,116 @@
 # CSDuel ⚔️
+### The Ultimate Real-Time Competitive Platform for Computer Science Mastery
 
-**Real-time 1v1 CS Fundamentals & DSA Quiz Battles**
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
+[![Socket.io](https://img.shields.io/badge/Socket.io-Real--Time-blue)](https://socket.io/)
+[![AI Powered](https://img.shields.io/badge/AI-NVIDIA%20NIM-red)](https://build.nvidia.com/)
 
-CSDuel is a high-fidelity competitive platform where developers can duel each other in real-time on core Computer Science concepts. Pair up globally with matchmaking or challenge friends to private rooms to test your knowledge in DSA, Operating Systems, DBMS, Computer Networks, and OOPs.
-
-![CSDuel Logo](src/app/icon.svg)
+**CSDuel** is a premium, full-stack competitive platform designed for developers to sharpen their Computer Science fundamentals through high-stakes, real-time 1v1 battles. Test your speed and accuracy in DSA, OS, DBMS, Networks, and OOPs.
 
 ---
 
-## 🚀 Key Features
+## ✨ Features
 
-- **Global Matchmaking**: Pair up instantly with developers online using our FIFO matchmaking queue.
-- **AI-Powered Question Engine**: Questions are dynamically generated for every duel using **NVIDIA NIM (Llama 3.3-70B)**, ensuring no two battles are ever the same.
-- **Mixed Mode Mastery**: Every duel covers a balanced mix of DSA, OS, DBMS, Networks, and Object-Oriented Programming.
-- **Real-Time Synchronization**: Powered by **Socket.io** for millisecond-precision timing and score updates.
-- **District Aesthetic**: A premium, minimalist UI/UX inspired by the "District by Zomato" design system—stark black, vibrant accents, and massive border radii.
-- **Global Leaderboard**: Track your progress and rank among the top duelists worldwide.
+### 🎮 Dynamic Gameplay
+- **Global Matchmaking**: Join a global queue and get paired instantly with an opponent of similar caliber.
+- **Private Friend Rooms**: Generate a unique room code and challenge your friends to a private duel.
+- **Real-Time Synchronization**: Experience zero-latency duels with active socket synchronization for timers, scores, and opponent progress.
+
+### 🧠 Intelligent Question Engine
+- **NVIDIA NIM Integration**: Powered by **Llama 3.3-70B**, every duel features unique, AI-generated questions tailored to the CS curriculum.
+- **Balanced Mixed-Mode**: Every duel rigorously covers five core domains: Data Structures, Operating Systems, Databases, Computer Networks, and OOPs.
+
+### 💎 Premium Design System
+- **"District" Aesthetic**: A stark, high-contrast UI/UX inspired by modern dark-mode design systems.
+- **Micro-Animations**: Smooth, framer-motion powered transitions and interactive elements for a truly premium feel.
+- **Responsive Layout**: Seamlessly duel on your desktop, tablet, or mobile device.
+
+---
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: Next.js 14 (App Router), TailwindCSS, Framer Motion
-- **Backend**: Node.js, Express, Socket.io (Standalone WebSocket server)
-- **Database**: PostgreSQL (via Neon), Prisma ORM
-- **Authentication**: Clerk (Google OAuth + Email)
-- **AI**: NVIDIA NIM API (Llama 3.3-70B)
-- **Styling**: Vanilla CSS + Tailwind Utility Classes
+| Layer | Technology |
+| :--- | :--- |
+| **Framework** | Next.js 14 (App Router) |
+| **Real-time** | Socket.io (Standalone Node.js Server) |
+| **Database** | PostgreSQL via Neon |
+| **ORM** | Prisma |
+| **Auth** | Clerk (Google OAuth + Email) |
+| **AI Engine** | NVIDIA NIM (Llama 3.3) |
+| **Styling** | TailwindCSS + Framer Motion |
 
 ---
 
-## ⚙️ Environment Configuration
+## ⚙️ Deployment & Environment
 
-To run this project locally, you will need the following environment variables:
+To deploy CSDuel, you need to configure the following environment variables across your frontend (Vercel) and backend (Render).
 
-### Frontend (.env.local)
-```env
-DATABASE_URL=
-CLERK_SECRET_KEY=
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
-NVIDIA_NIM_API_KEY=
-NEXT_PUBLIC_SOCKET_URL=http://localhost:10000
-SOCKET_INTERNAL_SECRET=
-```
+### 🖥️ Frontend (Vercel)
+- `DATABASE_URL`: Connection string for your PostgreSQL DB.
+- `CLERK_SECRET_KEY`: Clerk private key.
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk public key.
+- `NVIDIA_NIM_API_KEY`: API key for question generation.
+- `NEXT_PUBLIC_SOCKET_URL`: URL of your deployed Socket server.
+- `SOCKET_INTERNAL_SECRET`: Secret key for server-to-server communication.
 
-### Socket Server (socket-server/.env)
-```env
-PORT=10000
-CLERK_SECRET_KEY=
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-SOCKET_INTERNAL_SECRET=
-```
+### 📡 Backend (Render)
+- `PORT`: 10000
+- `CLERK_SECRET_KEY`: Clerk private key.
+- `NEXT_PUBLIC_APP_URL`: URL of your deployed Vercel frontend.
+- `SOCKET_INTERNAL_SECRET`: Matching secret for internal API calls.
 
 ---
 
-## 🛠️ Local Setup
+## 🚀 Getting Started
 
-1. **Clone the repository**:
+### Prerequisites
+- Node.js 18+
+- A Neon (PostgreSQL) account
+- A Clerk account
+- An NVIDIA NIM API key
+
+### Installation
+
+1. **Clone & Install**:
    ```bash
    git clone https://github.com/nikhil-m-star/CSDuel.git
    cd CSDuel
-   ```
-
-2. **Install dependencies**:
-   ```bash
    npm install
    cd socket-server && npm install && cd ..
    ```
 
-3. **Database Setup**:
+2. **Database Migration**:
    ```bash
    npx prisma db push
    ```
 
-4. **Run the Application**:
-   - In terminal 1 (Frontend): `npm run dev`
-   - In terminal 2 (Socket Server): `cd socket-server && npm start`
+3. **Development**:
+   - Run Frontend: `npm run dev`
+   - Run Socket Server: `cd socket-server && npm start`
 
 ---
 
-## 🛡️ Architecture
+## 🛡️ Architecture Overview
 
-CSDuel uses a **distributed architecture** to ensure real-time performance:
-- The **Next.js App** handles the UI, Auth, and persistent data (DB).
-- The **Socket Server** handles the ephemeral state of active duels, timers, and matchmaking.
-- They communicate via a secured **Internal API** channel to sync game results and generate questions.
+CSDuel implements a **Dual-Service Architecture**:
+1. **Application Service**: A Next.js application that handles user management, authentication, and persistent game history.
+2. **Real-Time Service**: A standalone Node.js server that manages the volatile state of active duels, matchmaking queues, and millisecond-accurate question timers.
+
+Both services communicate through a **Secured Internal Sync Layer**, ensuring that game results and AI-generated questions are consistently reflected in the database.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
 ## 📜 License
 
-This project is licensed under the MIT License.
+This project is licensed under the **MIT License**.
 
-*Built with ❤️ for the CS community.*
+---
+
+*Built with passion for the developer community.*
