@@ -36,7 +36,8 @@ export default function RootLayout({
           colorInputBackground: "#111111",
           colorInputText: "#ffffff",
           colorText: "#ffffff",
-          colorTextSecondary: "#999999",
+          colorTextSecondary: "#eeeeee",
+          colorTextOnPrimaryBackground: "#ffffff",
           borderRadius: "24px",
           fontFamily: "var(--font-sans)",
         },
@@ -52,10 +53,12 @@ export default function RootLayout({
           formFieldLabel: "text-gray-300 font-medium",
           formFieldInput: "bg-[#111111] border-[#1A1A1A] focus:ring-primary focus:border-primary",
           userButtonPopoverCard: "bg-black border border-[#1A1A1A] shadow-2xl rounded-[24px]",
-          userButtonPopoverActionButton: "hover:bg-[#111111] transition-all",
-          userButtonPopoverActionButtonText: "text-white font-medium",
+          userButtonPopoverActionButton: "hover:bg-[#1A1A1A] transition-all py-3",
+          userButtonPopoverActionButtonText: "text-white font-bold",
           userButtonPopoverActionButtonIcon: "text-primary",
-          userButtonPopoverFooter: "hidden", // Clean up footer
+          userPreviewMainIdentifier: "text-white font-bold",
+          userPreviewSecondaryIdentifier: "text-gray-400",
+          userButtonPopoverFooter: "hidden", 
         }
       }}
     >
