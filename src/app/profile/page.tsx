@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignOutButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Trophy, Target, TrendingUp, TrendingDown, Swords, Brain, Clock, BarChart3 } from "lucide-react";
+import { Trophy, Target, TrendingUp, TrendingDown, Swords, Brain, Clock, BarChart3, LogOut } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 interface Stats { totalDuels:number; wins:number; losses:number; winRate:number; totalScore:number; strongestTopic:string; weakestTopic:string; }
@@ -115,6 +115,15 @@ export default function ProfilePage() {
               );
             })}</div>
           )}
+        </motion.div>
+        {/* Logout Section */}
+        <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.3}} className="mt-8 flex justify-center">
+          <SignOutButton>
+            <button className="flex items-center gap-2 px-8 py-4 rounded-[24px] bg-[#111111] border border-[#1A1A1A] text-error font-bold hover:bg-error/10 transition-all cursor-pointer">
+              <LogOut className="w-5 h-5"/>
+              Sign Out
+            </button>
+          </SignOutButton>
         </motion.div>
       </main>
     </div>

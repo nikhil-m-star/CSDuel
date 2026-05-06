@@ -51,6 +51,11 @@ export default function RootLayout({
           identityPreviewText: "text-white",
           formFieldLabel: "text-gray-300 font-medium",
           formFieldInput: "bg-[#111111] border-[#1A1A1A] focus:ring-primary focus:border-primary",
+          userButtonPopoverCard: "bg-black border border-[#1A1A1A] shadow-2xl rounded-[24px]",
+          userButtonPopoverActionButton: "hover:bg-[#111111] transition-all",
+          userButtonPopoverActionButtonText: "text-white font-medium",
+          userButtonPopoverActionButtonIcon: "text-primary",
+          userButtonPopoverFooter: "hidden", // Clean up footer
         }
       }}
     >
