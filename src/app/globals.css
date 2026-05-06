@@ -34,6 +34,7 @@
     @apply bg-bg-dark text-text-primary font-sans antialiased;
     letter-spacing: -0.01em;
     min-height: 100vh;
+    color-scheme: dark;
   }
   
   h1, h2, h3, h4, h5, h6 {
