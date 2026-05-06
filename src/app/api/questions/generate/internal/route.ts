@@ -26,6 +26,7 @@ export async function POST(req: Request) {
         status: "IN_PROGRESS",
         questions: {
           create: questions.map((q, i) => ({
+            topic: "Mixed",
             questionText: q.questionText,
             options: q.options,
             correctAnswer: q.correctAnswer,
