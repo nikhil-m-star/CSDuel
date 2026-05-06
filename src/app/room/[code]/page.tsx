@@ -10,7 +10,7 @@ import { calculateScore } from "@/lib/utils";
 import type { Socket } from "socket.io-client";
 
 interface Question { id:string; questionText:string; options:string[]; correctAnswer:string; explanation?:string; orderIndex:number; }
-interface Player { userId:string; score:number; user:{id:string;username:string;imageUrl?:string|null}; }
+interface Player { userId:string; score:number; user:{id:string; clerkId:string; username:string; imageUrl?:string|null}; }
 
 export default function RoomPage() {
   const params = useParams();
