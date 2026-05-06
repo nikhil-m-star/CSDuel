@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  username  String
+  email     String   @unique
+  imageUrl  String?
+  createdAt DateTime @default(now())
+
+  roomPlayers RoomPlayer[]
+  answers     Answer[]
+}
+
+model Room {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  status    RoomStatus @default(WAITING)
+  topic     String
+  createdAt DateTime   @default(now())
+
+  players   RoomPlayer[]
+  questions Question[]
+  answers   Answer[]
+}
+
+enum RoomStatus {
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model RoomPlayer {
+  id     String @id @default(cuid())
+  roomId String
+  userId String
+  score  Int    @default(0)
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  roomId        String
+  topic         String
+  questionText  String
+  options       String[]
+  correctAnswer String
+  explanation   String?
+  orderIndex    Int      @default(0)
+
+  room    Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  answers Answer[]
+}
+
+model Answer {
+  id             String   @id @default(cuid())
+  roomId         String
+  userId         String
+  questionId     String
+  selectedAnswer String
+  isCorrect      Boolean
+  timeTaken      Float
+  score          Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  room     Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId, questionId])
+}
