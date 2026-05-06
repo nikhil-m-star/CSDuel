@@ -68,7 +68,7 @@ io.on("connection", (socket) => {
       // We found a match!
       const opponentSocket = matchmakingQueue.shift();
       
-      // Don't match with self if same socket somehow connected twice
+      // Don't match with self
       if (opponentSocket.data.clerkUserId === socket.data.clerkUserId) {
         matchmakingQueue.push(socket);
         return;
@@ -76,11 +76,32 @@ io.on("connection", (socket) => {
 
       // Generate a random room code (6 chars)
       const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      console.log(`[Socket] Match found! Created room ${roomCode}`);
+      console.log(`[Socket] Match found! Created room ${roomCode}. Syncing with DB...`);
 
-      // Tell both clients to join this room via routing
-      opponentSocket.emit("match-found", { roomCode });
-      socket.emit("match-found", { roomCode });
+      // Call internal Next.js API to create the room in DB
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/rooms/matchmaking`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            roomCode,
+            userIds: [socket.data.clerkUserId, opponentSocket.data.clerkUserId],
+            secret: process.env.SOCKET_INTERNAL_SECRET
+          })
+        });
+
+        if (!response.ok) throw new Error(`DB sync failed: ${response.status}`);
+
+        // Tell both clients to join this room via routing
+        opponentSocket.emit("match-found", { roomCode });
+        socket.emit("match-found", { roomCode });
+      } catch (err) {
+        console.error("[Socket] Matchmaking DB sync error:", err);
+        // Put users back in queue if DB sync fails? 
+        // For now, just cancel for these users
+        socket.emit("match-error", { message: "Matchmaking failed. Please try again." });
+        opponentSocket.emit("match-error", { message: "Matchmaking failed. Please try again." });
+      }
     } else {
       matchmakingQueue.push(socket);
     }
@@ -92,31 +113,65 @@ io.on("connection", (socket) => {
   });
 
   socket.on("start-duel", async ({ roomCode, roomId }) => {
-    console.log(`[Socket] Starting duel in room ${roomCode}`);
+    let state = roomStates.get(roomCode);
+    
+    // Prevent multiple starts
+    if (state && state.status === "IN_PROGRESS") {
+      console.log(`[Socket] Duel already in progress for room ${roomCode}`);
+      return;
+    }
 
-    roomStates.set(roomCode, {
-      status: "IN_PROGRESS",
-      roomId,
-      currentQuestion: 0,
-      scores: {},
-      answeredCount: {},
-    });
+    console.log(`[Socket] Starting duel in room ${roomCode} (ID: ${roomId})`);
 
-    io.to(roomCode).emit("room-update", { players: getRoomPlayers(io, roomCode), status: "IN_PROGRESS" });
+    // Call internal Next.js API to generate questions
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/questions/generate/internal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId,
+          secret: process.env.SOCKET_INTERNAL_SECRET
+        })
+      });
 
-    // Start countdown then questions
-    setTimeout(() => {
-      io.to(roomCode).emit("duel-start", { questions: [] }); // Client has questions
-      startQuestionTimer(io, roomCode, 0);
-    }, 3000);
+      if (!response.ok) throw new Error(`Generation failed: ${response.status}`);
+
+      roomStates.set(roomCode, {
+        status: "IN_PROGRESS",
+        roomId,
+        currentQuestion: 0,
+        scores: {},
+        answeredCount: {},
+      });
+
+      state = roomStates.get(roomCode);
+      io.to(roomCode).emit("room-update", { players: getRoomPlayers(io, roomCode), status: "IN_PROGRESS" });
+
+      // Start countdown then questions
+      setTimeout(() => {
+        // Fetch fresh room data to get questions (client will do this on duel-start)
+        io.to(roomCode).emit("duel-start", { questions: [] });
+        startQuestionTimer(io, roomCode, 0);
+      }, 3000);
+
+    } catch (err) {
+      console.error("[Socket] Start duel error:", err);
+      socket.emit("room-error", { message: "Failed to start duel. Please try again." });
+    }
   });
 
-  socket.on("submit-answer", ({ roomCode, roomId, questionId, selectedAnswer, timeTaken }) => {
+  socket.on("submit-answer", ({ roomCode, roomId, questionId, selectedAnswer, timeTaken, score }) => {
     const state = roomStates.get(roomCode);
     if (!state) return;
 
     const clerkId = socket.data.clerkUserId;
+    
+    // Update score
     if (!state.scores[clerkId]) state.scores[clerkId] = 0;
+    state.scores[clerkId] += (score || 0);
+
+    // Broadcast score update to everyone in the room
+    io.to(roomCode).emit("score-update", { scores: state.scores });
 
     socket.to(roomCode).emit("opponent-answered", { questionIndex: state.currentQuestion });
 

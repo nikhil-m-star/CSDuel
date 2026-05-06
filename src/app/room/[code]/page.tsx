@@ -39,16 +39,24 @@ export default function RoomPage() {
 
   const myUserId = useRef<string>("");
 
-  // Fetch room data
-  useEffect(()=>{
+  const fetchRoomData = useCallback(async () => {
     if(!code) return;
-    fetch(`/api/rooms/${code}`).then(r=>r.json()).then(data=>{
+    try {
+      const r = await fetch(`/api/rooms/${code}`);
+      const data = await r.json();
       if(data.error){setError(data.error);setPhase("loading");return;}
       setRoomData(data);
       if(data.status==="COMPLETED"){router.push(`/results/${data.id}`);return;}
-      setPhase(data.status==="IN_PROGRESS"?"playing":"waiting");
-    }).catch(()=>setError("Failed to load room"));
-  },[code,router]);
+      if(data.status==="IN_PROGRESS" && phase==="waiting") setPhase("playing");
+      else if(data.status==="WAITING") setPhase("waiting");
+    } catch(e) {
+      setError("Failed to load room");
+    }
+  }, [code, router, phase]);
+
+  useEffect(()=>{
+    fetchRoomData();
+  },[fetchRoomData]);
 
   // Get our DB user ID
   useEffect(()=>{
@@ -70,8 +78,8 @@ export default function RoomPage() {
         setRoomData(prev=>prev?{...prev,players:data.players,status:data.status}:prev);
         if(data.status==="IN_PROGRESS"&&phase==="waiting"){setPhase("countdown");}
       });
-      socket.on("duel-start",(data:{questions:Question[]})=>{
-        setRoomData(prev=>prev?{...prev,questions:data.questions}:prev);
+      socket.on("duel-start",async ()=>{
+        await fetchRoomData();
         setPhase("playing");setCurrentQ(0);setTimeLeft(30);answerTimeRef.current=Date.now();
       });
       socket.on("question-timer",(data:{timeRemaining:number;questionIndex:number})=>{
@@ -93,20 +101,18 @@ export default function RoomPage() {
     };
     connect();
     return ()=>{disconnectSocket();if(timerRef.current)clearInterval(timerRef.current);};
-  },[code,getToken,phase,router]);
+  },[code,getToken,router]);
 
   const copyCode = ()=>{navigator.clipboard.writeText(code);setCopied(true);setTimeout(()=>setCopied(false),2000);};
 
   const startDuel = async ()=>{
-    if(!roomData) return;
+    if(isGenerating) return;
     setIsGenerating(true);
     try {
-      const res = await fetch("/api/questions/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({roomId:roomData.id})});
-      const data = await res.json();
-      if(!res.ok) throw new Error(data.error);
-      socketRef.current?.emit("start-duel",{roomCode:code,roomId:roomData.id});
-      setPhase("countdown");
-    } catch(e){setError(e instanceof Error?e.message:"Failed to generate questions");setIsGenerating(false);}
+      socketRef.current?.emit("start-duel",{roomCode:code,roomId:roomData?.id});
+    } catch(e) {
+      setIsGenerating(false);
+    }
   };
 
   // Countdown
@@ -132,7 +138,7 @@ export default function RoomPage() {
     const score = calculateScore(isCorrect,timeTaken);
     setAnswerResult({isCorrect,correctAnswer:question.correctAnswer,explanation:question.explanation,score});
     if(isCorrect) setMyScore(prev=>prev+score);
-    socketRef.current?.emit("submit-answer",{roomCode:code,roomId:roomData.id,questionId:question.id,selectedAnswer:answer,timeTaken});
+    socketRef.current?.emit("submit-answer",{roomCode:code,roomId:roomData.id,questionId:question.id,selectedAnswer:answer,timeTaken,score});
     // Also persist to DB
     fetch("/api/answers",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({roomId:roomData.id,questionId:question.id,selectedAnswer:answer,timeTaken})}).catch(console.error);
   },[selectedAnswer,roomData,currentQ,code]);
