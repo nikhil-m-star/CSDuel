@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF2E5B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <rect width="24" height="24" fill="black" rx="6"/>
-  <g transform="scale(0.8) translate(2.5, 2.5)">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <rect width="24" height="24" fill="black" rx="6" stroke="none" />
+  <g transform="scale(0.7) translate(5, 5)" fill="none" stroke="#FF2E5B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
     <line x1="13" x2="19" y1="19" y2="13" />
     <line x1="16" x2="20" y1="16" y2="20" />

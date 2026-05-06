@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { Swords, LayoutDashboard, Trophy, User } from "lucide-react";
+import { Swords, Zap, Trophy, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/dashboard", label: "Lobby", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Lobby", icon: Zap },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/profile", label: "Profile", icon: User },
 ];

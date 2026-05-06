@@ -31,11 +31,27 @@ export default function RootLayout({
       appearance={{
         baseTheme: dark,
         variables: {
-          colorPrimary: "#06b6d4",
-          colorBackground: "#111827",
-          colorInputBackground: "#1e293b",
-          colorInputText: "#f1f5f9",
+          colorPrimary: "#FF2E5B",
+          colorBackground: "#000000",
+          colorInputBackground: "#111111",
+          colorInputText: "#ffffff",
+          colorText: "#ffffff",
+          colorTextSecondary: "#999999",
+          borderRadius: "24px",
+          fontFamily: "var(--font-sans)",
         },
+        elements: {
+          card: "bg-black border border-[#1A1A1A] shadow-2xl",
+          headerTitle: "text-2xl font-bold tracking-tight",
+          headerSubtitle: "text-gray-400",
+          socialButtonsBlockButton: "bg-[#111111] border-[#1A1A1A] hover:bg-[#1A1A1A] transition-all",
+          socialButtonsBlockButtonText: "font-bold",
+          formButtonPrimary: "bg-primary hover:bg-primary-dark transition-all font-bold py-3",
+          footerActionLink: "text-primary hover:text-primary-dark font-bold",
+          identityPreviewText: "text-white",
+          formFieldLabel: "text-gray-300 font-medium",
+          formFieldInput: "bg-[#111111] border-[#1A1A1A] focus:ring-primary focus:border-primary",
+        }
       }}
     >
       <html lang="en" className={`${outfit.variable} ${jetbrainsMono.variable}`}>
