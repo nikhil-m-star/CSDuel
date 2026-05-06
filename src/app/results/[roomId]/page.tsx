@@ -72,7 +72,7 @@ export default function ResultsPage() {
 
   return (
     <div className="min-h-screen grid-pattern"><Navbar/>
-      <main className="pt-20 pb-12 px-4 max-w-3xl mx-auto">
+      <main className="pt-28 pb-12 px-4 max-w-3xl mx-auto">
         {/* Result Banner */}
         <motion.div initial={{opacity:0,scale:0.9}} animate={{opacity:1,scale:1}} className="glass rounded-2xl p-8 text-center mb-6">
           <motion.div initial={{scale:0}} animate={{scale:1}} transition={{type:"spring",delay:0.2}}>
@@ -83,7 +83,7 @@ export default function ResultsPage() {
           <div className="flex items-center justify-center gap-8">
             {players.map((p,i)=>(
               <div key={p.userId} className="text-center">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-2 ${i===0?"bg-gradient-to-br from-accent to-amber-600":"bg-surface"}`}>{p.username?.[0]?.toUpperCase()||"?"}</div>
+                <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center text-2xl font-bold mx-auto mb-2 ${i===0?"bg-accent text-bg-dark":"bg-surface"}`}>{p.username?.[0]?.toUpperCase()||"?"}</div>
                 <div className="font-medium text-sm">{p.username}</div>
                 <div className={`text-2xl font-bold font-mono mt-1 ${i===0?"text-accent":"text-text-secondary"}`}>{p.score}</div>
                 <div className="text-xs text-text-muted">points</div>
@@ -115,8 +115,8 @@ export default function ResultsPage() {
 
         {/* Actions */}
         <div className="flex gap-3">
-          <button onClick={()=>router.push("/dashboard")} className="flex-1 py-3 rounded-xl glass hover:bg-bg-card-hover transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"><ArrowLeft className="w-4 h-4"/>Back to Lobby</button>
-          <button onClick={()=>router.push("/dashboard")} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-semibold hover:shadow-lg hover:shadow-primary/20 transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"><RotateCcw className="w-4 h-4"/>Play Again</button>
+          <button onClick={()=>router.push("/dashboard")} className="flex-1 py-4 rounded-3xl glass hover:bg-bg-card-hover transition-all flex items-center justify-center gap-2 text-sm cursor-pointer font-bold"><ArrowLeft className="w-4 h-4"/>Back to Lobby</button>
+          <button onClick={()=>router.push("/dashboard")} className="flex-1 py-4 rounded-3xl bg-primary text-white font-bold hover:bg-primary-dark transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"><RotateCcw className="w-4 h-4"/>Play Again</button>
         </div>
       </main>
     </div>

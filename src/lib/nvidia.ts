@@ -10,10 +10,10 @@ interface MCQQuestion {
   explanation: string;
 }
 
-export async function generateQuestions(topic: string): Promise<MCQQuestion[]> {
+export async function generateQuestions(): Promise<MCQQuestion[]> {
   const systemPrompt = `You are a computer science professor creating quiz questions. You MUST return ONLY a valid JSON array with exactly 10 objects. No markdown, no preamble, no explanation outside the JSON.`;
 
-  const userPrompt = `Generate 10 unique MCQ questions on ${topic} for a CS quiz duel. 
+  const userPrompt = `Generate 10 unique MCQ questions covering a balanced mix of Data Structures & Algorithms, Operating Systems, Database Management Systems, Computer Networks, and Object Oriented Programming for a CS quiz duel. 
 Return ONLY a JSON array with this structure:
 [{
   "question": "...",

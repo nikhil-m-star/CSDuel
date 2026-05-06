@@ -25,6 +25,9 @@ app.get("/", (req, res) => {
 const roomTimers = new Map();
 const roomStates = new Map();
 
+// Matchmaking Queue
+let matchmakingQueue = [];
+
 // Clerk JWT verification middleware
 io.use(async (socket, next) => {
   const token = socket.handshake.auth.token;
@@ -52,6 +55,40 @@ io.on("connection", (socket) => {
       players: getRoomPlayers(io, roomCode),
       status: roomStates.get(roomCode)?.status || "WAITING",
     });
+  });
+
+  socket.on("find-match", () => {
+    console.log(`[Socket] ${socket.id} finding match`);
+    
+    // Check if player is already in queue
+    const existingIndex = matchmakingQueue.findIndex(s => s.data.clerkUserId === socket.data.clerkUserId);
+    if (existingIndex !== -1) return;
+
+    if (matchmakingQueue.length > 0) {
+      // We found a match!
+      const opponentSocket = matchmakingQueue.shift();
+      
+      // Don't match with self if same socket somehow connected twice
+      if (opponentSocket.data.clerkUserId === socket.data.clerkUserId) {
+        matchmakingQueue.push(socket);
+        return;
+      }
+
+      // Generate a random room code (6 chars)
+      const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      console.log(`[Socket] Match found! Created room ${roomCode}`);
+
+      // Tell both clients to join this room via routing
+      opponentSocket.emit("match-found", { roomCode });
+      socket.emit("match-found", { roomCode });
+    } else {
+      matchmakingQueue.push(socket);
+    }
+  });
+
+  socket.on("cancel-match", () => {
+    console.log(`[Socket] ${socket.id} canceled match`);
+    matchmakingQueue = matchmakingQueue.filter(s => s.id !== socket.id);
   });
 
   socket.on("start-duel", async ({ roomCode, roomId }) => {
@@ -96,6 +133,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log(`[Socket] Disconnected: ${socket.id}`);
+    matchmakingQueue = matchmakingQueue.filter(s => s.id !== socket.id);
   });
 });
 

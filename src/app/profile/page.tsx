@@ -62,10 +62,10 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen grid-pattern"><Navbar/>
-      <main className="pt-20 pb-12 px-4 max-w-4xl mx-auto">
+      <main className="pt-28 pb-12 px-4 max-w-4xl mx-auto">
         {/* Profile Header */}
         <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} className="glass rounded-2xl p-8 mb-6 flex items-center gap-6">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-3xl font-bold shrink-0">{clerkUser?.firstName?.[0]||clerkUser?.username?.[0]||"?"}</div>
+          <div className="w-20 h-20 rounded-[32px] bg-primary flex items-center justify-center text-3xl font-bold text-white shrink-0">{clerkUser?.firstName?.[0]||clerkUser?.username?.[0]||"?"}</div>
           <div>
             <h1 className="text-2xl font-bold">{clerkUser?.firstName||clerkUser?.username||"Duelist"}</h1>
             <p className="text-text-secondary text-sm">{clerkUser?.emailAddresses?.[0]?.emailAddress}</p>

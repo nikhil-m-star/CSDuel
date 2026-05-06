@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 
 interface LeaderboardEntry { id:string; username:string; imageUrl?:string|null; totalDuels:number; wins:number; winRate:number; totalScore:number; }
 
-const topicFilters = ["All","DSA","OS","DBMS","CN"];
+const topicFilters = ["All","DSA","OS","DBMS","CN","OOPs"];
 
 export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -31,7 +31,7 @@ export default function LeaderboardPage() {
 
   return (
     <div className="min-h-screen grid-pattern"><Navbar/>
-      <main className="pt-20 pb-12 px-4 max-w-3xl mx-auto">
+      <main className="pt-28 pb-12 px-4 max-w-3xl mx-auto">
         <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} className="mb-6">
           <h1 className="text-3xl font-bold mb-2"><span className="gradient-text">Leaderboard</span></h1>
           <p className="text-text-secondary text-sm">Top duelists ranked by win rate</p>
@@ -65,7 +65,7 @@ export default function LeaderboardPage() {
               <motion.div key={entry.id} initial={{opacity:0,x:-20}} animate={{opacity:1,x:0}} transition={{delay:i*0.03}} className={`grid grid-cols-12 gap-2 px-4 py-3 items-center transition-all hover:bg-surface/50 ${i<3?"border-l-2":""}`} style={{borderLeftColor:i===0?"#f59e0b":i===1?"#9ca3af":i===2?"#b45309":"transparent"}}>
                 <div className="col-span-1">{getRankIcon(i)}</div>
                 <div className="col-span-4 flex items-center gap-2">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${i<3?"bg-gradient-to-br from-primary to-secondary":"bg-surface"}`}>{entry.username?.[0]?.toUpperCase()||"?"}</div>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 text-white ${i<3?"bg-primary":"bg-surface"}`}>{entry.username?.[0]?.toUpperCase()||"?"}</div>
                   <span className="text-sm font-medium truncate">{entry.username}</span>
                 </div>
                 <div className="col-span-2 text-center text-sm text-text-secondary font-mono">{entry.totalDuels}</div>

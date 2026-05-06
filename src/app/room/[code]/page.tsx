@@ -177,7 +177,7 @@ export default function RoomPage() {
             <div className="flex justify-center gap-4">
               {roomData?.players?.map((p,i)=>(
                 <div key={i} className="glass rounded-xl px-4 py-3 flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-sm font-bold">{p.user.username?.[0]?.toUpperCase()||"?"}</div>
+                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold">{p.user.username?.[0]?.toUpperCase()||"?"}</div>
                   <span className="text-sm font-medium">{p.user.username}</span>
                 </div>
               ))}
@@ -187,7 +187,7 @@ export default function RoomPage() {
             </div>
           </div>
           {(roomData?.players?.length||0)>=2&&(
-            <button onClick={startDuel} disabled={isGenerating} className="mt-8 px-8 py-3.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-semibold hover:shadow-lg hover:shadow-primary/20 disabled:opacity-50 flex items-center gap-2 mx-auto cursor-pointer transition-all">
+            <button onClick={startDuel} disabled={isGenerating} className="mt-8 px-8 py-4 rounded-3xl bg-primary text-white font-bold hover:bg-primary-dark disabled:opacity-50 flex items-center gap-2 mx-auto cursor-pointer transition-all">
               {isGenerating?<><Loader2 className="w-5 h-5 animate-spin"/>Generating Questions...</>:<><Zap className="w-5 h-5"/>Start Duel</>}
             </button>
           )}
@@ -211,8 +211,8 @@ export default function RoomPage() {
       <div className="fixed top-0 w-full z-50 glass-strong">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-sm text-text-muted">Q {currentQ+1}/{totalQuestions}</span>
-            <div className="w-32 h-1.5 rounded-full bg-surface overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-primary to-secondary transition-all" style={{width:`${((currentQ+1)/totalQuestions)*100}%`}}/></div>
+            <span className="text-sm font-bold text-text-muted">Q {currentQ+1}/{totalQuestions}</span>
+            <div className="w-32 h-2 rounded-full bg-surface overflow-hidden"><div className="h-full rounded-full bg-primary transition-all" style={{width:`${((currentQ+1)/totalQuestions)*100}%`}}/></div>
           </div>
           <div className={`flex items-center gap-2 font-mono text-lg font-bold ${timeLeft<=5?"text-error animate-pulse":timeLeft<=10?"text-accent":"text-text-primary"}`}>
             <Timer className="w-5 h-5"/>{timeLeft}s
@@ -225,7 +225,7 @@ export default function RoomPage() {
         </div>
       </div>
 
-      <main className="pt-20 pb-12 px-4 max-w-3xl mx-auto">
+      <main className="pt-28 pb-12 px-4 max-w-3xl mx-auto">
         {question&&(
           <motion.div key={currentQ} initial={{opacity:0,x:50}} animate={{opacity:1,x:0}} className="space-y-6">
             <div className="glass rounded-2xl p-6">

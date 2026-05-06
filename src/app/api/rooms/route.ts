@@ -10,11 +10,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { topic } = await req.json();
-
-    if (!topic || !["DSA", "OS", "DBMS", "CN"].includes(topic)) {
-      return NextResponse.json({ error: "Invalid topic" }, { status: 400 });
-    }
+    // Default topic since all duels are mixed now
+    const topic = "Mixed";
 
     const user = await prisma.user.findUnique({ where: { clerkId } });
     if (!user) {

@@ -11,6 +11,10 @@ import {
   Users,
   Timer,
   Shield,
+  Cpu,
+  Database,
+  Globe,
+  Code2
 } from "lucide-react";
 import { SignInButton, useUser } from "@clerk/nextjs";
 
@@ -20,7 +24,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen grid-pattern">
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 glass-strong">
+      <nav className="fixed top-4 w-[calc(100%-2rem)] max-w-7xl mx-auto left-0 right-0 z-50 glass-strong rounded-full shadow-2xl">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Swords className="w-8 h-8 text-primary" />
@@ -76,7 +80,7 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               {isLoaded && !isSignedIn && (
                 <SignInButton mode="modal">
-                  <button className="group px-8 py-4 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-semibold text-lg hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 flex items-center gap-2 cursor-pointer">
+                  <button className="group px-8 py-4 rounded-3xl bg-primary text-white font-bold text-lg transition-all duration-300 flex items-center gap-2 cursor-pointer">
                     Start Dueling
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </button>
@@ -85,7 +89,7 @@ export default function LandingPage() {
               {isLoaded && isSignedIn && (
                 <Link
                   href="/dashboard"
-                  className="group px-8 py-4 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-semibold text-lg hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 flex items-center gap-2"
+                  className="group px-8 py-4 rounded-3xl bg-primary text-white font-bold text-lg transition-all duration-300 flex items-center gap-2"
                 >
                   Enter Arena
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -201,10 +205,11 @@ export default function LandingPage() {
 
           <div className="grid sm:grid-cols-2 gap-6">
             {[
-              { name: "Data Structures & Algorithms", code: "DSA", icon: "🧮", cls: "topic-dsa" },
-              { name: "Operating Systems", code: "OS", icon: "⚙️", cls: "topic-os" },
-              { name: "Database Management", code: "DBMS", icon: "🗄️", cls: "topic-dbms" },
-              { name: "Computer Networks", code: "CN", icon: "🌐", cls: "topic-cn" },
+              { name: "Data Structures & Algorithms", code: "DSA", icon: Brain, cls: "topic-dsa" },
+              { name: "Operating Systems", code: "OS", icon: Cpu, cls: "topic-os" },
+              { name: "Database Management Systems", code: "DBMS", icon: Database, cls: "topic-dbms" },
+              { name: "Computer Networks", code: "CN", icon: Globe, cls: "topic-cn" },
+              { name: "Object Oriented Prog.", code: "OOPs", icon: Code2, cls: "topic-oops" },
             ].map((topic, i) => (
               <motion.div
                 key={i}
@@ -212,17 +217,19 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className={`${topic.cls} glass rounded-2xl p-6 hover:bg-bg-card-hover transition-all duration-300 cursor-default group`}
+                className={`${topic.cls} glass rounded-3xl p-6 transition-all duration-300 cursor-default group`}
                 style={{
                   boxShadow: `0 0 30px var(--topic-glow)`,
                 }}
               >
                 <div className="flex items-center gap-4">
-                  <span className="text-3xl">{topic.icon}</span>
+                  <div className="p-3 rounded-2xl bg-surface/50">
+                    <topic.icon className="w-8 h-8" style={{ color: "var(--topic-color)" }} />
+                  </div>
                   <div>
-                    <h3 className="font-semibold text-lg">{topic.name}</h3>
+                    <h3 className="font-bold text-lg">{topic.name}</h3>
                     <span
-                      className="text-xs font-mono px-2 py-0.5 rounded-md bg-white/5"
+                      className="text-xs font-mono px-2 py-0.5 rounded-md bg-white/5 font-bold"
                       style={{ color: "var(--topic-color)" }}
                     >
                       {topic.code}
@@ -251,7 +258,7 @@ export default function LandingPage() {
             </p>
             {isLoaded && !isSignedIn && (
               <SignInButton mode="modal">
-                <button className="px-8 py-4 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-semibold text-lg hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 cursor-pointer">
+                <button className="px-8 py-4 rounded-3xl bg-primary text-white font-bold text-lg transition-all duration-300 cursor-pointer">
                   Get Started — It&apos;s Free
                 </button>
               </SignInButton>
@@ -259,7 +266,7 @@ export default function LandingPage() {
             {isLoaded && isSignedIn && (
               <Link
                 href="/dashboard"
-                className="inline-block px-8 py-4 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-semibold text-lg hover:shadow-lg hover:shadow-primary/20 transition-all duration-300"
+                className="inline-block px-8 py-4 rounded-3xl bg-primary text-white font-bold text-lg transition-all duration-300"
               >
                 Go to Dashboard
               </Link>
@@ -275,7 +282,7 @@ export default function LandingPage() {
             <Swords className="w-4 h-4 text-primary" />
             <span>CSDuel</span>
           </div>
-          <span>Built with ⚡ Next.js, Socket.io & NVIDIA NIM</span>
+          <span>Built with Next.js, Socket.io & NVIDIA NIM</span>
         </div>
       </footer>
     </div>

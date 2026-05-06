@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     }
 
     // Generate new questions via NVIDIA NIM
-    const generatedQuestions = await generateQuestions(room.topic);
+    const generatedQuestions = await generateQuestions();
 
     // Store questions in DB
     const savedQuestions = await Promise.all(

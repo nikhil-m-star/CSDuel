@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const outfit = Outfit({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-sans",
 });
 
 const jetbrainsMono = JetBrains_Mono({
@@ -38,8 +38,8 @@ export default function RootLayout({
         },
       }}
     >
-      <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-        <body className="font-sans">{children}</body>
+      <html lang="en" className={`${outfit.variable} ${jetbrainsMono.variable}`}>
+        <body className="font-sans antialiased text-text-primary selection:bg-primary/30 selection:text-white">{children}</body>
       </html>
     </ClerkProvider>
   );
