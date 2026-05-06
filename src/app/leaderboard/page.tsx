@@ -65,7 +65,11 @@ export default function LeaderboardPage() {
               <motion.div key={entry.id} initial={{opacity:0,x:-20}} animate={{opacity:1,x:0}} transition={{delay:i*0.03}} className={`grid grid-cols-12 gap-2 px-4 py-3 items-center transition-all hover:bg-surface/50 ${i<3?"border-l-2":""}`} style={{borderLeftColor:i===0?"#f59e0b":i===1?"#9ca3af":i===2?"#b45309":"transparent"}}>
                 <div className="col-span-1">{getRankIcon(i)}</div>
                 <div className="col-span-4 flex items-center gap-2">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 text-white ${i<3?"bg-primary":"bg-surface"}`}>{entry.username?.[0]?.toUpperCase()||"?"}</div>
+                  {entry.imageUrl ? (
+                    <img src={entry.imageUrl} alt={entry.username} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 text-white ${i<3?"bg-primary":"bg-surface"}`}>{entry.username?.[0]?.toUpperCase()||"?"}</div>
+                  )}
                   <span className="text-sm font-medium truncate">{entry.username}</span>
                 </div>
                 <div className="col-span-2 text-center text-sm text-text-secondary font-mono">{entry.totalDuels}</div>
