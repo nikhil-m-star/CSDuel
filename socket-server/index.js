@@ -57,7 +57,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("find-match", () => {
+  socket.on("find-match", async () => {
     console.log(`[Socket] ${socket.id} finding match`);
     
     // Check if player is already in queue
