@@ -1,8 +1,3 @@
-interface NIMMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
-}
-
 interface MCQQuestion {
   question: string;
   options: string[];
@@ -10,7 +5,7 @@ interface MCQQuestion {
   explanation: string;
 }
 
-const FALLBACK_QUESTIONS: MCQQuestion[] = [
+const QUESTION_BANK: MCQQuestion[] = [
   {
     question: "Which data structure guarantees O(1) average-time lookup by key?",
     options: ["Balanced BST", "Hash table", "Binary heap", "Linked list"],
@@ -71,7 +66,76 @@ const FALLBACK_QUESTIONS: MCQQuestion[] = [
     correctAnswer: "C",
     explanation: "Abstraction focuses on what an object does rather than how it is implemented.",
   },
+  {
+    question: "Which traversal visits nodes in the order left subtree, root, right subtree?",
+    options: ["Preorder", "Inorder", "Postorder", "Level order"],
+    correctAnswer: "B",
+    explanation: "Inorder traversal processes left subtree, then root, then right subtree.",
+  },
+  {
+    question: "What is a page fault?",
+    options: ["A CPU arithmetic exception", "An invalid DNS response", "An interrupt raised when a referenced page is not in memory", "A deadlock detection event"],
+    correctAnswer: "C",
+    explanation: "A page fault occurs when the OS must load a needed memory page into RAM.",
+  },
+  {
+    question: "Which SQL command removes all rows from a table while keeping the table structure?",
+    options: ["DROP", "DELETE DATABASE", "TRUNCATE", "REMOVE"],
+    correctAnswer: "C",
+    explanation: "TRUNCATE clears rows while preserving the table definition.",
+  },
+  {
+    question: "Which protocol resolves a domain name to an IP address?",
+    options: ["DHCP", "DNS", "FTP", "SMTP"],
+    correctAnswer: "B",
+    explanation: "DNS translates human-readable domain names into IP addresses.",
+  },
+  {
+    question: "Which principle is best represented by keeping object fields private and exposing methods to access them?",
+    options: ["Inheritance", "Encapsulation", "Polymorphism", "Overloading"],
+    correctAnswer: "B",
+    explanation: "Encapsulation bundles data with the methods that operate on it and restricts direct access.",
+  },
+  {
+    question: "What is the time complexity of inserting an element into a binary heap?",
+    options: ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+    correctAnswer: "B",
+    explanation: "Heap insertion may bubble the new element up through the height of the heap.",
+  },
+  {
+    question: "Which concurrency issue occurs when two threads wait forever for each other to release resources?",
+    options: ["Starvation", "Race condition", "Deadlock", "Thrashing"],
+    correctAnswer: "C",
+    explanation: "Deadlock is the condition where threads or processes are stuck waiting on each other indefinitely.",
+  },
+  {
+    question: "Which join returns only rows with matching values in both tables?",
+    options: ["LEFT JOIN", "RIGHT JOIN", "FULL OUTER JOIN", "INNER JOIN"],
+    correctAnswer: "D",
+    explanation: "INNER JOIN includes only rows that match in both joined tables.",
+  },
+  {
+    question: "What field in an IPv4 packet prevents it from circulating forever?",
+    options: ["Port", "Checksum", "Time To Live", "Sequence Number"],
+    correctAnswer: "C",
+    explanation: "TTL decreases at each hop and the packet is discarded when it reaches zero.",
+  },
+  {
+    question: "Which OOP relationship is usually preferred over inheritance for flexibility?",
+    options: ["Composition", "Aggregation by interface only", "Friendship", "Static binding"],
+    correctAnswer: "A",
+    explanation: "Composition is often preferred because it reduces tight coupling and allows behavior assembly.",
+  },
 ];
+
+function shuffleQuestions<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 function normalizeQuestions(questions: MCQQuestion[]): MCQQuestion[] {
   return questions.slice(0, 10).map((q, i) => ({
@@ -89,71 +153,5 @@ function normalizeQuestions(questions: MCQQuestion[]): MCQQuestion[] {
 }
 
 export async function generateQuestions(): Promise<MCQQuestion[]> {
-  const systemPrompt = `You are a computer science professor creating quiz questions. You MUST return ONLY a valid JSON array with exactly 10 objects. No markdown, no preamble, no explanation outside the JSON.`;
-
-  const userPrompt = `Generate 10 unique MCQ questions covering a balanced mix of Data Structures & Algorithms, Operating Systems, Database Management Systems, Computer Networks, and Object Oriented Programming for a CS quiz duel. 
-Return ONLY a JSON array with this structure:
-[{
-  "question": "...",
-  "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
-  "correctAnswer": "A",
-  "explanation": "..."
-}]
-No preamble, no markdown, just raw JSON. The questions should range from intermediate to advanced difficulty. Each question must have exactly 4 options labeled A, B, C, D. The correctAnswer field should be just the letter (A, B, C, or D).`;
-
-  const messages: NIMMessage[] = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: userPrompt },
-  ];
-
-  const apiKey = process.env.NVIDIA_NIM_API_KEY;
-  if (!apiKey) {
-    console.warn("NVIDIA_NIM_API_KEY is missing. Falling back to bundled questions.");
-    return FALLBACK_QUESTIONS;
-  }
-
-  try {
-    const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "meta/llama-3.3-70b-instruct",
-        messages,
-        temperature: 0.7,
-        top_p: 0.95,
-        max_tokens: 4096,
-      }),
-      signal: AbortSignal.timeout(20000),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`NVIDIA NIM API error ${response.status}: ${errorText}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("No content in NVIDIA NIM response");
-    }
-
-    let jsonStr = content.trim();
-    if (jsonStr.startsWith("```")) {
-      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-    }
-
-    const questions: MCQQuestion[] = JSON.parse(jsonStr);
-    if (!Array.isArray(questions) || questions.length === 0) {
-      throw new Error("Response is not a valid array");
-    }
-
-    return normalizeQuestions(questions);
-  } catch (error) {
-    console.error("Question generation failed, using fallback questions:", error);
-    return FALLBACK_QUESTIONS;
-  }
+  return normalizeQuestions(shuffleQuestions(QUESTION_BANK));
 }

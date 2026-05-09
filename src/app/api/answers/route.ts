@@ -99,7 +99,6 @@ export async function POST(req: Request) {
         score: existingAnswer.score,
         totalScore: roomPlayer.score,
         correctAnswer: question.correctAnswer,
-        explanation: question.explanation,
       });
     }
 
@@ -144,7 +143,6 @@ export async function POST(req: Request) {
       score,
       totalScore: created.totalScore,
       correctAnswer: question.correctAnswer,
-      explanation: question.explanation,
     });
   } catch (error) {
     console.error("Answer submission error:", error);

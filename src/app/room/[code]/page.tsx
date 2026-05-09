@@ -15,7 +15,6 @@ interface Player { userId:string; score:number; user:{id:string; clerkId:string;
 interface AnswerResult {
   isCorrect:boolean;
   correctAnswer:string;
-  explanation?:string;
   score:number;
   totalScore:number;
 }
@@ -33,6 +32,7 @@ export default function RoomPage() {
   const [timeLeft, setTimeLeft] = useState(30);
   const [selectedAnswer, setSelectedAnswer] = useState<string|null>(null);
   const [answerResult, setAnswerResult] = useState<AnswerResult|null>(null);
+  const [isAnswerPending, setIsAnswerPending] = useState(false);
   const [myScore, setMyScore] = useState(0);
   const [opponentScore, setOpponentScore] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -116,7 +116,8 @@ export default function RoomPage() {
           else setOpponentScore(score as number);
         });
       });
-      socket.on("answer-result",(data:{accepted:boolean;isCorrect:boolean;correctAnswer:string;explanation?:string;score:number;totalScore:number})=>{
+      socket.on("answer-result",(data:{accepted:boolean;isCorrect:boolean;correctAnswer:string;score:number;totalScore:number})=>{
+        setIsAnswerPending(false);
         if (!data.accepted) {
           return;
         }
@@ -124,20 +125,20 @@ export default function RoomPage() {
         setAnswerResult({
           isCorrect: data.isCorrect,
           correctAnswer: data.correctAnswer,
-          explanation: data.explanation,
           score: data.score,
           totalScore: data.totalScore,
         });
         setMyScore(data.totalScore);
       });
       socket.on("answer-error",(data:{message?:string})=>{
+        setIsAnswerPending(false);
         setSelectedAnswer(null);
         setAnswerResult(null);
         setError(data.message || "Failed to submit answer");
       });
       socket.on("opponent-answered",()=>{setOpponentAnswered(true);});
       socket.on("next-question",(data:{questionIndex:number})=>{
-        setCurrentQ(data.questionIndex);setTimeLeft(30);setSelectedAnswer(null);setAnswerResult(null);setOpponentAnswered(false);answerTimeRef.current=Date.now();
+        setCurrentQ(data.questionIndex);setTimeLeft(30);setSelectedAnswer(null);setAnswerResult(null);setIsAnswerPending(false);setOpponentAnswered(false);answerTimeRef.current=Date.now();
       });
       socket.on("duel-end",(data:{roomId:string})=>{setPhase("finished");setTimeout(()=>router.push(`/results/${data.roomId}`),2000);});
       socket.on("room-error",(data:{message?:string})=>{
@@ -176,14 +177,15 @@ export default function RoomPage() {
   },[phase]);
 
   const submitAnswer = useCallback(async (answer:string)=>{
-    if(selectedAnswer||!roomData) return;
+    if(selectedAnswer||isAnswerPending||!roomData) return;
     setError("");
     setSelectedAnswer(answer);
+    setIsAnswerPending(true);
     const timeTaken = Math.min(30,(Date.now()-answerTimeRef.current)/1000);
     const question = roomData.questions[currentQ];
     if(!question) return;
     socketRef.current?.emit("submit-answer",{roomCode:code,roomId:roomData.id,questionId:question.id,selectedAnswer:answer,timeTaken});
-  },[selectedAnswer,roomData,currentQ,code]);
+  },[selectedAnswer,isAnswerPending,roomData,currentQ,code]);
 
   // Auto-advance on timeout
   useEffect(()=>{
@@ -316,23 +318,24 @@ export default function RoomPage() {
                   if(isCorrectAnswer) cls+="border-success bg-success/10 glow-success";
                   else if(isSelected&&!answerResult.isCorrect) cls+="border-error bg-error/10 glow-error";
                   else cls+="border-transparent opacity-50";
-                } else if(isSelected) cls+="border-primary bg-primary/10";
+                } else if(isSelected) cls+="border-primary bg-primary/20 scale-[1.01] shadow-[0_0_0_1px_rgba(255,46,91,0.35)]";
+                else if(selectedAnswer) cls+="border-transparent opacity-50";
                 else cls+="border-transparent hover:bg-bg-card-hover hover:border-primary/20";
 
                 return (
-                  <motion.button key={i} whileHover={!showResult?{scale:1.01}:{}} whileTap={!showResult?{scale:0.99}:{}} onClick={()=>!showResult&&submitAnswer(letter)} disabled={!!showResult} className={cls}>
+                  <motion.button key={i} whileHover={!showResult&&!selectedAnswer?{scale:1.01}:{}} whileTap={!showResult&&!selectedAnswer?{scale:0.99}:{}} onClick={()=>!showResult&&!selectedAnswer&&submitAnswer(letter)} disabled={!!showResult || !!selectedAnswer} className={cls}>
                     <div className="flex items-center gap-3">
-                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${showResult&&isCorrectAnswer?"bg-success text-white":showResult&&isSelected?"bg-error text-white":"bg-surface text-text-secondary"}`}>{letter}</span>
+                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${showResult&&isCorrectAnswer?"bg-success text-white":showResult&&isSelected?"bg-error text-white":isSelected?"bg-primary text-white":"bg-surface text-text-secondary"}`}>{letter}</span>
                       <span className="text-sm">{opt}</span>
                     </div>
                   </motion.button>
                 );
               })}
             </div>
+            {isAnswerPending&&!answerResult&&<p className="text-xs text-primary text-center animate-pulse">Answer locked in...</p>}
             {answerResult&&(
               <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className={`rounded-xl p-4 ${answerResult.isCorrect?"bg-success/10 border border-success/20":"bg-error/10 border border-error/20"}`}>
                 <p className="text-sm font-medium mb-1">{answerResult.isCorrect?`Correct! +${answerResult.score} pts`:"Wrong!"}</p>
-                {answerResult.explanation&&<p className="text-xs text-text-secondary">{answerResult.explanation}</p>}
               </motion.div>
             )}
             {opponentAnswered&&!answerResult&&<p className="text-xs text-accent text-center animate-pulse">Opponent has answered!</p>}
