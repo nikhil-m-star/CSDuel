@@ -52,7 +52,6 @@ io.on("connection", (socket) => {
     console.log(`[Socket] ${socket.id} joined room ${roomCode}`);
 
     io.to(roomCode).emit("room-update", {
-      players: getRoomPlayers(io, roomCode),
       status: roomStates.get(roomCode)?.status || "WAITING",
     });
   });
@@ -145,7 +144,7 @@ io.on("connection", (socket) => {
       });
 
       state = roomStates.get(roomCode);
-      io.to(roomCode).emit("room-update", { players: getRoomPlayers(io, roomCode), status: "IN_PROGRESS" });
+      io.to(roomCode).emit("room-update", { status: "IN_PROGRESS" });
 
       // Start countdown then questions
       setTimeout(() => {
@@ -239,19 +238,6 @@ function advanceQuestion(io, roomCode) {
     io.to(roomCode).emit("next-question", { questionIndex: nextQuestion });
     startQuestionTimer(io, roomCode, nextQuestion);
   }, 1500);
-}
-
-function getRoomPlayers(io, roomCode) {
-  const roomSockets = io.sockets.adapter.rooms.get(roomCode);
-  if (!roomSockets) return [];
-  const players = [];
-  for (const socketId of roomSockets) {
-    const s = io.sockets.sockets.get(socketId);
-    if (s) {
-      players.push({ clerkUserId: s.data.clerkUserId, socketId });
-    }
-  }
-  return players;
 }
 
 httpServer.listen(port, () => {

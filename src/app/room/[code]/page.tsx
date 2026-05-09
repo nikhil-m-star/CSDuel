@@ -52,12 +52,12 @@ export default function RoomPage() {
       if(data.error){setError(data.error);setPhase("loading");return;}
       setRoomData(data);
       if(data.status==="COMPLETED"){router.push(`/results/${data.id}`);return;}
-      if(data.status==="IN_PROGRESS" && phase==="waiting") setPhase("playing");
+      if(data.status==="IN_PROGRESS" && phaseRef.current==="loading") setPhase("playing");
       else if(data.status==="WAITING") setPhase("waiting");
     } catch(e) {
       setError("Failed to load room");
     }
-  }, [code, router, phase]);
+  }, [code, router]);
 
   useEffect(()=>{
     fetchRoomData();
@@ -78,12 +78,21 @@ export default function RoomPage() {
       socket = connectSocket(token);
       socketRef.current = socket;
 
-      socket.on("connect",()=>{socket.emit("join-room",code);});
-      socket.on("room-update",(data:{players:Player[];status:string})=>{
-        setRoomData(prev=>prev?{...prev,players:data.players,status:data.status}:prev);
+      const joinRoom = ()=>{socket.emit("join-room",code);};
+
+      socket.on("connect",joinRoom);
+
+      if (socket.connected) {
+        joinRoom();
+      }
+
+      socket.on("room-update",async (data:{status:string})=>{
+        setRoomData(prev=>prev?{...prev,status:data.status}:prev);
+        await fetchRoomData();
         if(data.status==="IN_PROGRESS"&&phaseRef.current==="waiting"){setPhase("countdown");}
       });
       socket.on("duel-start",async ()=>{
+        setIsGenerating(false);
         await fetchRoomData();
         setPhase("playing");setCurrentQ(0);setTimeLeft(30);answerTimeRef.current=Date.now();
       });
@@ -103,10 +112,14 @@ export default function RoomPage() {
         setCurrentQ(data.questionIndex);setTimeLeft(30);setSelectedAnswer(null);setAnswerResult(null);setOpponentAnswered(false);answerTimeRef.current=Date.now();
       });
       socket.on("duel-end",(data:{roomId:string})=>{setPhase("finished");setTimeout(()=>router.push(`/results/${data.roomId}`),2000);});
+      socket.on("room-error",(data:{message?:string})=>{
+        setIsGenerating(false);
+        setError(data.message || "Failed to start duel");
+      });
     };
     connect();
     return ()=>{disconnectSocket();if(timerRef.current)clearInterval(timerRef.current);};
-  },[code,getToken,router]);
+  },[code,getToken,router,fetchRoomData,clerkUser?.id]);
 
   const copyCode = ()=>{navigator.clipboard.writeText(code);setCopied(true);setTimeout(()=>setCopied(false),2000);};
 

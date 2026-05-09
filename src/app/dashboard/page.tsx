@@ -5,7 +5,7 @@ import { useUser, useAuth } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, ArrowRight, Clock, Users, Zap, Loader2, Globe } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import { connectSocket, getSocket } from "@/lib/socket";
+import { connectSocket, disconnectSocket } from "@/lib/socket";
 
 export default function DashboardPage() {
   const { user: clerkUser } = useUser();
@@ -25,11 +25,7 @@ export default function DashboardPage() {
     
     // Cleanup socket if we leave dashboard while queueing
     return () => {
-      const s = getSocket();
-      if (s) {
-        s.emit("cancel-match");
-        s.off("match-found");
-      }
+      disconnectSocket();
     };
   }, []);
 
@@ -40,12 +36,27 @@ export default function DashboardPage() {
       const token = await getToken();
       if (!token) throw new Error("Not authenticated");
       const s = connectSocket(token);
+
+      const handleMatchFound = ({ roomCode }: { roomCode: string }) => {
+        setIsQueuing(false);
+        s.off("match-error", handleMatchError);
+        disconnectSocket();
+        router.push(`/room/${roomCode}`);
+      };
+
+      const handleMatchError = ({ message }: { message?: string }) => {
+        setError(message || "Matchmaking failed. Please try again.");
+        setIsQueuing(false);
+        s.off("match-found", handleMatchFound);
+        disconnectSocket();
+      };
+
+      s.off("match-found");
+      s.off("match-error");
+      s.on("match-found", handleMatchFound);
+      s.on("match-error", handleMatchError);
       
       s.emit("find-match");
-      
-      s.on("match-found", ({ roomCode }) => {
-        router.push(`/room/${roomCode}`);
-      });
     } catch(e) {
       setError(e instanceof Error ? e.message : "Failed to enter matchmaking");
       setIsQueuing(false);
@@ -54,8 +65,7 @@ export default function DashboardPage() {
 
   const cancelMatch = () => {
     setIsQueuing(false);
-    const s = getSocket();
-    if (s) s.emit("cancel-match");
+    disconnectSocket();
   };
 
   const handleCreate = async () => {
