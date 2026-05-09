@@ -228,7 +228,6 @@ io.on("connection", (socket) => {
       state.scores[clerkId] = result.totalScore;
 
       io.to(roomCode).emit("score-update", { scores: state.scores });
-      socket.to(roomCode).emit("opponent-answered", { questionIndex: state.currentQuestion });
 
       const qKey = `${state.currentQuestion}`;
       if (!state.answeredCount[qKey]) state.answeredCount[qKey] = 0;

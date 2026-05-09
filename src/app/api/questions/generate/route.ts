@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateQuestions } from "@/lib/nvidia";
+import { getRecentQuestionHistory } from "@/lib/question-history";
 
 export async function POST(req: Request) {
   try {
@@ -62,7 +63,12 @@ export async function POST(req: Request) {
     }
 
     // Generate new questions via NVIDIA NIM
-    const generatedQuestions = await generateQuestions();
+    const recentQuestionTexts = await getRecentQuestionHistory(
+      room.players.map((player) => player.userId)
+    );
+    const generatedQuestions = await generateQuestions({
+      avoidQuestionTexts: recentQuestionTexts,
+    });
 
     // Store questions in DB
     const savedQuestions = await Promise.all(

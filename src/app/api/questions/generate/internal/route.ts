@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateQuestions } from "@/lib/nvidia";
+import { getRecentQuestionHistory } from "@/lib/question-history";
 
 export async function POST(req: Request) {
   try {
@@ -55,7 +56,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: "Questions already exist" });
     }
 
-    const questions = await generateQuestions();
+    const recentQuestionTexts = await getRecentQuestionHistory(
+      room.players.map((player) => player.userId)
+    );
+    const questions = await generateQuestions({
+      avoidQuestionTexts: recentQuestionTexts,
+    });
     
     await prisma.room.update({
       where: { id: roomId },

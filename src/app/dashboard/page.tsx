@@ -140,7 +140,7 @@ export default function DashboardPage() {
                     </button>
                   </div>
                 ) : (
-                  <button onClick={handleFindMatch} className="w-full sm:w-auto px-12 py-4 rounded-3xl bg-primary text-white font-bold text-lg hover:bg-primary-dark transition-all shadow-lg shadow-primary/20 cursor-pointer flex items-center justify-center gap-2">
+                  <button onClick={handleFindMatch} className="w-full sm:w-auto px-12 py-4 rounded-3xl bg-primary text-white font-bold text-lg hover:bg-primary-dark transition-all cursor-pointer flex items-center justify-center gap-2">
                     <Zap className="w-6 h-6" /> Find Match
                   </button>
                 )}

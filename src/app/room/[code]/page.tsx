@@ -46,12 +46,18 @@ export default function RoomPage() {
 
   const socketRef = useRef<Socket|null>(null);
   const answerTimeRef = useRef<number>(0);
+  const myScoreRef = useRef(0);
+  const optimisticScoreRef = useRef<number|null>(null);
   const phaseRef = useRef(phase);
   const autoStartTriggeredRef = useRef(false);
 
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+
+  useEffect(() => {
+    myScoreRef.current = myScore;
+  }, [myScore]);
 
   const fetchRoomData = useCallback(async () => {
     if(!code) return;
@@ -129,7 +135,11 @@ export default function RoomPage() {
       });
       socket.on("answer-result",(data:{accepted:boolean;isCorrect:boolean;correctAnswer:string;score:number;totalScore:number})=>{
         setIsAnswerPending(false);
+        optimisticScoreRef.current = null;
         if (!data.accepted) {
+          if (typeof data.totalScore === "number") {
+            setMyScore(data.totalScore);
+          }
           return;
         }
 
@@ -143,11 +153,16 @@ export default function RoomPage() {
       });
       socket.on("answer-error",(data:{message?:string})=>{
         setIsAnswerPending(false);
+        if (optimisticScoreRef.current !== null) {
+          setMyScore(optimisticScoreRef.current);
+          optimisticScoreRef.current = null;
+        }
         setSelectedAnswer(null);
         setAnswerResult(null);
         setError(data.message || "Failed to submit answer");
       });
       socket.on("next-question",(data:{questionIndex:number})=>{
+        optimisticScoreRef.current = null;
         setCurrentQ(data.questionIndex);setTimeLeft(30);setSelectedAnswer(null);setAnswerResult(null);setIsAnswerPending(false);answerTimeRef.current=Date.now();
       });
       socket.on("duel-end",(data:{roomId:string})=>{setPhase("finished");setTimeout(()=>router.push(`/results/${data.roomId}`),2000);});
@@ -207,16 +222,20 @@ export default function RoomPage() {
     const timeTaken = Math.min(30,(Date.now()-answerTimeRef.current)/1000);
     const isCorrect = answer !== "TIMEOUT" && answer === question.correctAnswer;
     const score = calculateScore(isCorrect, timeTaken);
+    const baseScore = myScoreRef.current;
+    const optimisticTotalScore = baseScore + score;
     setSelectedAnswer(answer);
     setAnswerResult({
       isCorrect,
       correctAnswer: question.correctAnswer,
       score,
-      totalScore: myScore,
+      totalScore: optimisticTotalScore,
     });
+    optimisticScoreRef.current = baseScore;
+    setMyScore(optimisticTotalScore);
     setIsAnswerPending(true);
     socketRef.current?.emit("submit-answer",{roomCode:code,roomId:roomData.id,questionId:question.id,selectedAnswer:answer,timeTaken});
-  },[selectedAnswer,isAnswerPending,roomData,currentQ,code,myScore]);
+  },[selectedAnswer,isAnswerPending,roomData,currentQ,code]);
 
   // Auto-advance on timeout
   useEffect(()=>{
