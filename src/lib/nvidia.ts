@@ -8,6 +8,14 @@ interface GenerateQuestionsOptions {
   avoidQuestionTexts?: string[];
 }
 
+interface ModelAttempt {
+  model: string;
+  timeoutMs: number;
+  maxTokens: number;
+  temperature: number;
+  topP: number;
+}
+
 function normalizeQuestions(questions: MCQQuestion[]): MCQQuestion[] {
   return questions.slice(0, 10).map((q, i) => ({
     question: q.question || `Question ${i + 1}`,
@@ -30,7 +38,7 @@ function buildPrompt(avoidQuestionTexts: string[]): string {
           .join("\n")}\n`
       : "";
 
-  return `${avoidSection}Generate exactly 10 unique computer science MCQs for a fast 1v1 quiz duel. Keep the wording concise. Spread questions across DSA, OOP, DBMS, OS, and computer networks. Return only a JSON array with objects shaped like {"question":"...","options":["...","...","...","..."],"correctAnswer":"A"}. Use exactly 4 options and set correctAnswer to A, B, C, or D.`;
+  return `${avoidSection}Generate exactly 10 concise computer science MCQs for a 1v1 quiz duel. Cover DSA, OOP, DBMS, OS, and CN. Return one compact JSON array only, minified on a single line, with objects like {"question":"...","options":["...","...","...","..."],"correctAnswer":"A"}. Keep question and option text short. Use exactly 4 options. correctAnswer must be A, B, C, or D.`;
 }
 
 function extractJsonArray(rawContent: string): string {
@@ -65,6 +73,32 @@ function hasDuplicates(questions: MCQQuestion[], avoidQuestionTexts: string[]): 
   return false;
 }
 
+function buildMessages(prompt: string) {
+  return [
+    {
+      role: "user",
+      content: `Return only valid raw JSON. No markdown. No code fences. No explanation.\n\n${prompt}`,
+    },
+  ];
+}
+
+const MODEL_ATTEMPTS: ModelAttempt[] = [
+  {
+    model: "google/gemma-3n-e4b-it",
+    timeoutMs: 24000,
+    maxTokens: 700,
+    temperature: 0.3,
+    topP: 0.85,
+  },
+  {
+    model: "google/gemma-3n-e2b-it",
+    timeoutMs: 26000,
+    maxTokens: 700,
+    temperature: 0.3,
+    topP: 0.85,
+  },
+];
+
 export async function generateQuestions(
   options: GenerateQuestionsOptions = {}
 ): Promise<MCQQuestion[]> {
@@ -89,56 +123,54 @@ export async function generateQuestions(
   for (const exclusionWindow of exclusionWindows) {
     const activeAvoidList =
       exclusionWindow > 0 ? avoidQuestionTexts.slice(0, exclusionWindow) : [];
+    const prompt = buildPrompt(activeAvoidList);
 
-    try {
-      const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "google/gemma-3n-e4b-it",
-          messages: [
-            {
-              role: "user",
-              content: `Return only valid raw JSON. No markdown. No explanation outside JSON.\n\n${buildPrompt(activeAvoidList)}`,
-            },
-          ],
-          temperature: 0.45,
-          top_p: 0.9,
-          max_tokens: 1000,
-        }),
-        signal: AbortSignal.timeout(8000),
-      });
+    for (const attempt of MODEL_ATTEMPTS) {
+      try {
+        const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: attempt.model,
+            messages: buildMessages(prompt),
+            temperature: attempt.temperature,
+            top_p: attempt.topP,
+            max_tokens: attempt.maxTokens,
+          }),
+          signal: AbortSignal.timeout(attempt.timeoutMs),
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`NVIDIA NIM API error ${response.status}: ${errorText}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`${attempt.model} error ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+
+        if (!content) {
+          throw new Error(`No content in ${attempt.model} response`);
+        }
+
+        const jsonStr = extractJsonArray(content);
+        const questions: MCQQuestion[] = JSON.parse(jsonStr);
+
+        if (!Array.isArray(questions) || questions.length < 10) {
+          throw new Error(`${attempt.model} response is not a valid 10-question array`);
+        }
+
+        const normalizedQuestions = normalizeQuestions(questions);
+        if (hasDuplicates(normalizedQuestions, activeAvoidList)) {
+          throw new Error(`${attempt.model} generated repeated recent questions`);
+        }
+
+        return normalizedQuestions;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error("Unknown question generation error");
       }
-
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-
-      if (!content) {
-        throw new Error("No content in NVIDIA NIM response");
-      }
-
-      const jsonStr = extractJsonArray(content);
-      const questions: MCQQuestion[] = JSON.parse(jsonStr);
-
-      if (!Array.isArray(questions) || questions.length < 10) {
-        throw new Error("Response is not a valid 10-question array");
-      }
-
-      const normalizedQuestions = normalizeQuestions(questions);
-      if (hasDuplicates(normalizedQuestions, activeAvoidList)) {
-        throw new Error("Generated questions repeated recent user history");
-      }
-
-      return normalizedQuestions;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error("Unknown question generation error");
     }
   }
 
