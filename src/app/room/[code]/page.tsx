@@ -8,9 +8,10 @@ import Image from "next/image";
 import { Copy, Check, Users, Loader2, Swords, Timer, Zap } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
+import { calculateScore } from "@/lib/utils";
 import type { Socket } from "socket.io-client";
 
-interface Question { id:string; questionText:string; options:string[]; orderIndex:number; }
+interface Question { id:string; questionText:string; options:string[]; correctAnswer:string; orderIndex:number; }
 interface Player { userId:string; score:number; user:{id:string; clerkId:string; username:string; imageUrl?:string|null}; }
 interface AnswerResult {
   isCorrect:boolean;
@@ -41,7 +42,6 @@ export default function RoomPage() {
   const [countdownNum, setCountdownNum] = useState(3);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSocketReady, setIsSocketReady] = useState(false);
-  const [opponentAnswered, setOpponentAnswered] = useState(false);
   const [error, setError] = useState("");
 
   const socketRef = useRef<Socket|null>(null);
@@ -147,9 +147,8 @@ export default function RoomPage() {
         setAnswerResult(null);
         setError(data.message || "Failed to submit answer");
       });
-      socket.on("opponent-answered",()=>{setOpponentAnswered(true);});
       socket.on("next-question",(data:{questionIndex:number})=>{
-        setCurrentQ(data.questionIndex);setTimeLeft(30);setSelectedAnswer(null);setAnswerResult(null);setIsAnswerPending(false);setOpponentAnswered(false);answerTimeRef.current=Date.now();
+        setCurrentQ(data.questionIndex);setTimeLeft(30);setSelectedAnswer(null);setAnswerResult(null);setIsAnswerPending(false);answerTimeRef.current=Date.now();
       });
       socket.on("duel-end",(data:{roomId:string})=>{setPhase("finished");setTimeout(()=>router.push(`/results/${data.roomId}`),2000);});
       socket.on("room-error",(data:{message?:string})=>{
@@ -203,13 +202,21 @@ export default function RoomPage() {
   const submitAnswer = useCallback(async (answer:string)=>{
     if(selectedAnswer||isAnswerPending||!roomData) return;
     setError("");
-    setSelectedAnswer(answer);
-    setIsAnswerPending(true);
-    const timeTaken = Math.min(30,(Date.now()-answerTimeRef.current)/1000);
     const question = roomData.questions[currentQ];
     if(!question) return;
+    const timeTaken = Math.min(30,(Date.now()-answerTimeRef.current)/1000);
+    const isCorrect = answer !== "TIMEOUT" && answer === question.correctAnswer;
+    const score = calculateScore(isCorrect, timeTaken);
+    setSelectedAnswer(answer);
+    setAnswerResult({
+      isCorrect,
+      correctAnswer: question.correctAnswer,
+      score,
+      totalScore: myScore,
+    });
+    setIsAnswerPending(true);
     socketRef.current?.emit("submit-answer",{roomCode:code,roomId:roomData.id,questionId:question.id,selectedAnswer:answer,timeTaken});
-  },[selectedAnswer,isAnswerPending,roomData,currentQ,code]);
+  },[selectedAnswer,isAnswerPending,roomData,currentQ,code,myScore]);
 
   // Auto-advance on timeout
   useEffect(()=>{
@@ -369,7 +376,6 @@ export default function RoomPage() {
                 <p className="text-sm font-medium mb-1">{answerResult.isCorrect?`Correct! +${answerResult.score} pts`:"Wrong!"}</p>
               </motion.div>
             )}
-            {opponentAnswered&&!answerResult&&<p className="text-xs text-accent text-center animate-pulse">Opponent has answered!</p>}
           </motion.div>
         )}
       </main>

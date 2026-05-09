@@ -41,16 +41,15 @@ export async function GET(
     }
 
     const questions =
-      room.status === "COMPLETED"
-        ? room.questions
-        : room.questions.map((question) => ({
-            id: question.id,
-            roomId: question.roomId,
-            topic: question.topic,
-            questionText: question.questionText,
-            options: question.options,
-            orderIndex: question.orderIndex,
-          }));
+      room.questions.map((question) => ({
+        id: question.id,
+        roomId: question.roomId,
+        topic: question.topic,
+        questionText: question.questionText,
+        options: question.options,
+        correctAnswer: question.correctAnswer,
+        orderIndex: question.orderIndex,
+      }));
 
     return NextResponse.json({
       ...room,

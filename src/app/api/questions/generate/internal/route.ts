@@ -67,7 +67,6 @@ export async function POST(req: Request) {
             questionText: q.question,
             options: q.options,
             correctAnswer: q.correctAnswer,
-            explanation: q.explanation,
             orderIndex: i
           }))
         }
