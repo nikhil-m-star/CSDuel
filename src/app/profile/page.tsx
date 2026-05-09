@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { useUser, SignOutButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Trophy, Target, TrendingUp, TrendingDown, Swords, Brain, Clock, BarChart3, LogOut } from "lucide-react";
+import Image from "next/image";
+import { Trophy, Target, TrendingUp, TrendingDown, Swords, Clock, BarChart3, LogOut } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 interface Stats { totalDuels:number; wins:number; losses:number; winRate:number; totalScore:number; strongestTopic:string; weakestTopic:string; }
@@ -23,7 +24,7 @@ export default function ProfilePage() {
         const user = await userRes.json();
         setMyUserId(user.id);
 
-        const roomsRes = await fetch("/api/rooms");
+        const roomsRes = await fetch("/api/rooms?limit=100&status=COMPLETED");
         const rooms = await roomsRes.json();
         if(!Array.isArray(rooms)) return;
 
@@ -66,7 +67,7 @@ export default function ProfilePage() {
         {/* Profile Header */}
         <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} className="glass rounded-2xl p-8 mb-6 flex items-center gap-6">
           {clerkUser?.imageUrl ? (
-            <img src={clerkUser.imageUrl} alt="Profile" className="w-20 h-20 rounded-[32px] object-cover shrink-0" />
+            <Image src={clerkUser.imageUrl} alt="Profile" width={80} height={80} className="w-20 h-20 rounded-[32px] object-cover shrink-0" unoptimized />
           ) : (
             <div className="w-20 h-20 rounded-[32px] bg-primary flex items-center justify-center text-3xl font-bold text-white shrink-0">{clerkUser?.firstName?.[0]||clerkUser?.username?.[0]||"?"}</div>
           )}

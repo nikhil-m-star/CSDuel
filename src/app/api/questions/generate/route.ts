@@ -16,19 +16,47 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Room ID required" }, { status: 400 });
     }
 
+    const user = await prisma.user.findUnique({ where: { clerkId } });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     const room = await prisma.room.findUnique({
       where: { id: roomId },
-      include: { questions: true },
+      include: {
+        questions: true,
+        players: {
+          orderBy: { id: "asc" },
+          include: { user: true },
+        },
+      },
     });
 
     if (!room) {
       return NextResponse.json({ error: "Room not found" }, { status: 404 });
     }
 
+    const isMember = room.players.some((player) => player.userId === user.id);
+    if (!isMember) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (room.players[0]?.user.clerkId !== clerkId) {
+      return NextResponse.json({ error: "Only the host can generate questions" }, { status: 403 });
+    }
+
     // If questions already exist, return them (idempotent)
     if (room.questions.length > 0) {
       return NextResponse.json({
-        questions: room.questions,
+        questions: room.questions.map((question) => ({
+          id: question.id,
+          roomId: question.roomId,
+          topic: question.topic,
+          questionText: question.questionText,
+          options: question.options,
+          explanation: question.explanation,
+          orderIndex: question.orderIndex,
+        })),
         cached: true,
       });
     }
@@ -54,7 +82,15 @@ export async function POST(req: Request) {
     );
 
     return NextResponse.json({
-      questions: savedQuestions,
+      questions: savedQuestions.map((question) => ({
+        id: question.id,
+        roomId: question.roomId,
+        topic: question.topic,
+        questionText: question.questionText,
+        options: question.options,
+        explanation: question.explanation,
+        orderIndex: question.orderIndex,
+      })),
       cached: false,
     });
   } catch (error) {

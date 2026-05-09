@@ -1,16 +1,24 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, Users, Loader2, Swords, Timer, ChevronRight, Zap } from "lucide-react";
+import Image from "next/image";
+import { Copy, Check, Users, Loader2, Swords, Timer, Zap } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
-import { calculateScore } from "@/lib/utils";
 import type { Socket } from "socket.io-client";
 
-interface Question { id:string; questionText:string; options:string[]; correctAnswer:string; explanation?:string; orderIndex:number; }
+interface Question { id:string; questionText:string; options:string[]; orderIndex:number; }
 interface Player { userId:string; score:number; user:{id:string; clerkId:string; username:string; imageUrl?:string|null}; }
+interface AnswerResult {
+  isCorrect:boolean;
+  correctAnswer:string;
+  explanation?:string;
+  score:number;
+  totalScore:number;
+}
 
 export default function RoomPage() {
   const params = useParams();
@@ -19,12 +27,12 @@ export default function RoomPage() {
   const { user: clerkUser } = useUser();
   const code = (params.code as string)?.toUpperCase();
 
-  const [roomData, setRoomData] = useState<{id:string;status:string;topic:string;players:Player[];questions:Question[]}|null>(null);
+  const [roomData, setRoomData] = useState<{id:string;status:string;topic:string;players:Player[];questions:Question[];hostClerkId:string|null}|null>(null);
   const [phase, setPhase] = useState<"loading"|"waiting"|"countdown"|"playing"|"finished">("loading");
   const [currentQ, setCurrentQ] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
   const [selectedAnswer, setSelectedAnswer] = useState<string|null>(null);
-  const [answerResult, setAnswerResult] = useState<{isCorrect:boolean;correctAnswer:string;explanation?:string;score:number}|null>(null);
+  const [answerResult, setAnswerResult] = useState<AnswerResult|null>(null);
   const [myScore, setMyScore] = useState(0);
   const [opponentScore, setOpponentScore] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -34,10 +42,7 @@ export default function RoomPage() {
   const [error, setError] = useState("");
 
   const socketRef = useRef<Socket|null>(null);
-  const timerRef = useRef<NodeJS.Timeout|null>(null);
   const answerTimeRef = useRef<number>(0);
-
-  const myUserId = useRef<string>("");
   const phaseRef = useRef(phase);
 
   useEffect(() => {
@@ -49,12 +54,12 @@ export default function RoomPage() {
     try {
       const r = await fetch(`/api/rooms/${code}`);
       const data = await r.json();
-      if(data.error){setError(data.error);setPhase("loading");return;}
+      if(data.error){setError(data.error);return;}
       setRoomData(data);
       if(data.status==="COMPLETED"){router.push(`/results/${data.id}`);return;}
       if(data.status==="IN_PROGRESS" && phaseRef.current==="loading") setPhase("playing");
       else if(data.status==="WAITING") setPhase("waiting");
-    } catch(e) {
+    } catch {
       setError("Failed to load room");
     }
   }, [code, router]);
@@ -63,10 +68,14 @@ export default function RoomPage() {
     fetchRoomData();
   },[fetchRoomData]);
 
-  // Get our DB user ID
-  useEffect(()=>{
-    fetch("/api/user").then(r=>r.json()).then(d=>{if(d.id)myUserId.current=d.id}).catch(console.error);
-  },[]);
+  useEffect(() => {
+    if (!roomData || !clerkUser?.id) return;
+
+    const me = roomData.players.find((player) => player.user.clerkId === clerkUser.id);
+    const opponent = roomData.players.find((player) => player.user.clerkId !== clerkUser.id);
+    setMyScore(me?.score ?? 0);
+    setOpponentScore(opponent?.score ?? 0);
+  }, [roomData, clerkUser?.id]);
 
   // Socket connection
   useEffect(()=>{
@@ -107,6 +116,25 @@ export default function RoomPage() {
           else setOpponentScore(score as number);
         });
       });
+      socket.on("answer-result",(data:{accepted:boolean;isCorrect:boolean;correctAnswer:string;explanation?:string;score:number;totalScore:number})=>{
+        if (!data.accepted) {
+          return;
+        }
+
+        setAnswerResult({
+          isCorrect: data.isCorrect,
+          correctAnswer: data.correctAnswer,
+          explanation: data.explanation,
+          score: data.score,
+          totalScore: data.totalScore,
+        });
+        setMyScore(data.totalScore);
+      });
+      socket.on("answer-error",(data:{message?:string})=>{
+        setSelectedAnswer(null);
+        setAnswerResult(null);
+        setError(data.message || "Failed to submit answer");
+      });
       socket.on("opponent-answered",()=>{setOpponentAnswered(true);});
       socket.on("next-question",(data:{questionIndex:number})=>{
         setCurrentQ(data.questionIndex);setTimeLeft(30);setSelectedAnswer(null);setAnswerResult(null);setOpponentAnswered(false);answerTimeRef.current=Date.now();
@@ -118,17 +146,18 @@ export default function RoomPage() {
       });
     };
     connect();
-    return ()=>{disconnectSocket();if(timerRef.current)clearInterval(timerRef.current);};
+    return ()=>{disconnectSocket();};
   },[code,getToken,router,fetchRoomData,clerkUser?.id]);
 
   const copyCode = ()=>{navigator.clipboard.writeText(code);setCopied(true);setTimeout(()=>setCopied(false),2000);};
 
   const startDuel = async ()=>{
     if(isGenerating) return;
+    setError("");
     setIsGenerating(true);
     try {
       socketRef.current?.emit("start-duel",{roomCode:code,roomId:roomData?.id});
-    } catch(e) {
+    } catch {
       setIsGenerating(false);
     }
   };
@@ -148,27 +177,21 @@ export default function RoomPage() {
 
   const submitAnswer = useCallback(async (answer:string)=>{
     if(selectedAnswer||!roomData) return;
+    setError("");
     setSelectedAnswer(answer);
     const timeTaken = Math.min(30,(Date.now()-answerTimeRef.current)/1000);
     const question = roomData.questions[currentQ];
     if(!question) return;
-    const isCorrect = answer===question.correctAnswer;
-    const score = calculateScore(isCorrect,timeTaken);
-    setAnswerResult({isCorrect,correctAnswer:question.correctAnswer,explanation:question.explanation,score});
-    if(isCorrect) setMyScore(prev=>prev+score);
-    socketRef.current?.emit("submit-answer",{roomCode:code,roomId:roomData.id,questionId:question.id,selectedAnswer:answer,timeTaken,score});
-    // Also persist to DB
-    fetch("/api/answers",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({roomId:roomData.id,questionId:question.id,selectedAnswer:answer,timeTaken})}).catch(console.error);
+    socketRef.current?.emit("submit-answer",{roomCode:code,roomId:roomData.id,questionId:question.id,selectedAnswer:answer,timeTaken});
   },[selectedAnswer,roomData,currentQ,code]);
 
   // Auto-advance on timeout
   useEffect(()=>{
     if(phase!=="playing"||!roomData) return;
     if(timeLeft<=0&&!selectedAnswer){
-      const question = roomData.questions[currentQ];
-      if(question){setAnswerResult({isCorrect:false,correctAnswer:question.correctAnswer,explanation:question.explanation,score:0});setSelectedAnswer("TIMEOUT");}
+      void submitAnswer("TIMEOUT");
     }
-  },[timeLeft,phase,selectedAnswer,roomData,currentQ]);
+  },[timeLeft,phase,selectedAnswer,roomData,submitAnswer]);
 
   const question = roomData?.questions?.[currentQ];
   const totalQuestions = roomData?.questions?.length||10;
@@ -179,7 +202,7 @@ export default function RoomPage() {
     </div>
   );
 
-  if(error) return (
+  if(error && !roomData) return (
     <div className="min-h-screen grid-pattern"><Navbar/><main className="pt-24 text-center"><p className="text-error">{error}</p><button onClick={()=>router.push("/dashboard")} className="mt-4 px-6 py-2 rounded-xl bg-primary text-white cursor-pointer">Back to Lobby</button></main></div>
   );
 
@@ -188,6 +211,7 @@ export default function RoomPage() {
     <div className="min-h-screen grid-pattern"><Navbar/>
       <main className="pt-24 pb-12 px-4 max-w-2xl mx-auto">
         <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} className="glass rounded-2xl p-8 text-center">
+          {error && <div className="mb-6 rounded-2xl border border-error/20 bg-error/10 px-4 py-3 text-sm font-medium text-error">{error}</div>}
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6"><Swords className="w-8 h-8 text-primary"/></div>
           <h1 className="text-2xl font-bold mb-2">Duel Room</h1>
           <p className="text-text-secondary mb-6">Share this code with your opponent</p>
@@ -201,7 +225,18 @@ export default function RoomPage() {
             <div className="flex justify-center gap-4">
               {roomData?.players?.map((p,i)=>(
                 <div key={i} className="glass rounded-xl px-4 py-3 flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold">{p.user.username?.[0]?.toUpperCase()||"?"}</div>
+                  {p.user.imageUrl ? (
+                    <Image
+                      src={p.user.imageUrl}
+                      alt={p.user.username}
+                      width={32}
+                      height={32}
+                      className="w-8 h-8 rounded-full object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold">{p.user.username?.[0]?.toUpperCase()||"?"}</div>
+                  )}
                   <span className="text-sm font-medium">{p.user.username}</span>
                 </div>
               ))}
@@ -211,7 +246,7 @@ export default function RoomPage() {
             </div>
           </div>
           {(roomData?.players?.length || 0) >= 2 && (
-            roomData?.players[0].user.clerkId === clerkUser?.id ? (
+            roomData?.hostClerkId === clerkUser?.id ? (
               <button 
                 onClick={startDuel} 
                 disabled={isGenerating} 
@@ -264,6 +299,7 @@ export default function RoomPage() {
       </div>
 
       <main className="pt-28 pb-12 px-4 max-w-3xl mx-auto">
+        {error && <div className="mb-4 rounded-2xl border border-error/20 bg-error/10 px-4 py-3 text-sm font-medium text-error">{error}</div>}
         {question&&(
           <motion.div key={currentQ} initial={{opacity:0,x:50}} animate={{opacity:1,x:0}} className="space-y-6">
             <div className="glass rounded-2xl p-6">

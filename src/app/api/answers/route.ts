@@ -5,12 +5,47 @@ import { calculateScore } from "@/lib/utils";
 
 export async function POST(req: Request) {
   try {
-    const { userId: clerkId } = await auth();
+    const body = await req.json();
+    const {
+      roomId,
+      questionId,
+      selectedAnswer,
+      timeTaken,
+      clerkId: internalClerkId,
+      secret,
+    } = body;
+
+    const configuredInternalSecret = process.env.SOCKET_INTERNAL_SECRET;
+    const isInternalRequest = typeof secret !== "undefined" || typeof internalClerkId === "string";
+
+    let clerkId: string | null = null;
+    if (isInternalRequest) {
+      if (!configuredInternalSecret || secret !== configuredInternalSecret) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      clerkId = typeof internalClerkId === "string" ? internalClerkId : null;
+    } else {
+      const authResult = await auth();
+      clerkId = authResult.userId;
+    }
+
     if (!clerkId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { roomId, questionId, selectedAnswer, timeTaken } = await req.json();
+    if (typeof roomId !== "string" || typeof questionId !== "string") {
+      return NextResponse.json({ error: "Invalid room or question" }, { status: 400 });
+    }
+
+    const normalizedAnswer =
+      typeof selectedAnswer === "string" ? selectedAnswer.trim().toUpperCase() : "";
+    if (!["A", "B", "C", "D", "TIMEOUT"].includes(normalizedAnswer)) {
+      return NextResponse.json({ error: "Invalid answer choice" }, { status: 400 });
+    }
+
+    const normalizedTimeTaken = Number.isFinite(Number(timeTaken))
+      ? Math.max(0, Math.min(30, Number(timeTaken)))
+      : 30;
 
     const user = await prisma.user.findUnique({ where: { clerkId } });
     if (!user) {
@@ -19,17 +54,33 @@ export async function POST(req: Request) {
 
     const question = await prisma.question.findUnique({
       where: { id: questionId },
+      include: {
+        room: {
+          include: {
+            players: true,
+          },
+        },
+      },
     });
 
     if (!question) {
       return NextResponse.json({ error: "Question not found" }, { status: 404 });
     }
 
-    const isCorrect = selectedAnswer === question.correctAnswer;
-    const score = calculateScore(isCorrect, timeTaken);
+    if (question.roomId !== roomId) {
+      return NextResponse.json({ error: "Question does not belong to this room" }, { status: 400 });
+    }
 
-    // Upsert answer (in case of retries)
-    const answer = await prisma.answer.upsert({
+    if (question.room.status !== "IN_PROGRESS") {
+      return NextResponse.json({ error: "Room is not accepting answers" }, { status: 400 });
+    }
+
+    const roomPlayer = question.room.players.find((player) => player.userId === user.id);
+    if (!roomPlayer) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const existingAnswer = await prisma.answer.findUnique({
       where: {
         roomId_userId_questionId: {
           roomId,
@@ -37,43 +88,61 @@ export async function POST(req: Request) {
           questionId,
         },
       },
-      update: {
-        selectedAnswer,
-        isCorrect,
-        timeTaken,
-        score,
-      },
-      create: {
-        roomId,
-        userId: user.id,
-        questionId,
-        selectedAnswer,
-        isCorrect,
-        timeTaken,
-        score,
-      },
     });
 
-    // Update total player score
-    const totalScore = await prisma.answer.aggregate({
-      where: { roomId, userId: user.id },
-      _sum: { score: true },
-    });
+    if (existingAnswer) {
+      return NextResponse.json({
+        accepted: false,
+        alreadyAnswered: true,
+        answer: existingAnswer,
+        isCorrect: existingAnswer.isCorrect,
+        score: existingAnswer.score,
+        totalScore: roomPlayer.score,
+        correctAnswer: question.correctAnswer,
+        explanation: question.explanation,
+      });
+    }
 
-    await prisma.roomPlayer.update({
-      where: {
-        roomId_userId: { roomId, userId: user.id },
-      },
-      data: {
-        score: totalScore._sum.score || 0,
-      },
+    const isCorrect = normalizedAnswer !== "TIMEOUT" && normalizedAnswer === question.correctAnswer;
+    const score = calculateScore(isCorrect, normalizedTimeTaken);
+
+    const created = await prisma.$transaction(async (tx) => {
+      const answer = await tx.answer.create({
+        data: {
+          roomId,
+          userId: user.id,
+          questionId,
+          selectedAnswer: normalizedAnswer,
+          isCorrect,
+          timeTaken: normalizedTimeTaken,
+          score,
+        },
+      });
+
+      const updatedPlayer = await tx.roomPlayer.update({
+        where: {
+          roomId_userId: {
+            roomId,
+            userId: user.id,
+          },
+        },
+        data: {
+          score: {
+            increment: score,
+          },
+        },
+      });
+
+      return { answer, totalScore: updatedPlayer.score };
     });
 
     return NextResponse.json({
-      answer,
+      accepted: true,
+      alreadyAnswered: false,
+      answer: created.answer,
       isCorrect,
       score,
-      totalScore: totalScore._sum.score || 0,
+      totalScore: created.totalScore,
       correctAnswer: question.correctAnswer,
       explanation: question.explanation,
     });

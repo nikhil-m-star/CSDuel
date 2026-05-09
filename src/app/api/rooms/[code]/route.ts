@@ -13,11 +13,16 @@ export async function GET(
     }
 
     const { code } = await params;
+    const user = await prisma.user.findUnique({ where: { clerkId } });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     const room = await prisma.room.findUnique({
       where: { code },
       include: {
         players: {
+          orderBy: { id: "asc" },
           include: { user: true },
         },
         questions: {
@@ -30,7 +35,28 @@ export async function GET(
       return NextResponse.json({ error: "Room not found" }, { status: 404 });
     }
 
-    return NextResponse.json(room);
+    const isMember = room.players.some((player) => player.userId === user.id);
+    if (!isMember) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const questions =
+      room.status === "COMPLETED"
+        ? room.questions
+        : room.questions.map((question) => ({
+            id: question.id,
+            roomId: question.roomId,
+            topic: question.topic,
+            questionText: question.questionText,
+            options: question.options,
+            orderIndex: question.orderIndex,
+          }));
+
+    return NextResponse.json({
+      ...room,
+      hostClerkId: room.players[0]?.user.clerkId ?? null,
+      questions,
+    });
   } catch (error) {
     console.error("Room get error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -57,7 +83,9 @@ export async function POST(
     const room = await prisma.room.findUnique({
       where: { code },
       include: {
-        players: true,
+        players: {
+          orderBy: { id: "asc" },
+        },
       },
     });
 
@@ -86,10 +114,28 @@ export async function POST(
       },
     });
 
+    const playerCount = await prisma.roomPlayer.count({
+      where: { roomId: room.id },
+    });
+
+    if (playerCount > 2) {
+      await prisma.roomPlayer.delete({
+        where: {
+          roomId_userId: {
+            roomId: room.id,
+            userId: user.id,
+          },
+        },
+      });
+
+      return NextResponse.json({ error: "Room is full" }, { status: 400 });
+    }
+
     const updatedRoom = await prisma.room.findUnique({
       where: { code },
       include: {
         players: {
+          orderBy: { id: "asc" },
           include: { user: true },
         },
       },

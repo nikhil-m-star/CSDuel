@@ -1,9 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateRoomCode } from "@/lib/utils";
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
     const { userId: clerkId } = await auth();
     if (!clerkId) {
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const { userId: clerkId } = await auth();
     if (!clerkId) {
@@ -68,19 +68,27 @@ export async function GET() {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    const limitParam = Number(req.nextUrl.searchParams.get("limit") ?? "10");
+    const limit = Number.isFinite(limitParam)
+      ? Math.min(Math.max(Math.trunc(limitParam), 1), 100)
+      : 10;
+    const status = req.nextUrl.searchParams.get("status");
+
     const rooms = await prisma.room.findMany({
       where: {
         players: {
           some: { userId: user.id },
         },
+        ...(status ? { status: status as "WAITING" | "IN_PROGRESS" | "COMPLETED" } : {}),
       },
       include: {
         players: {
+          orderBy: { id: "asc" },
           include: { user: true },
         },
       },
       orderBy: { createdAt: "desc" },
-      take: 10,
+      take: limit,
     });
 
     return NextResponse.json(rooms);

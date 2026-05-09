@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 require("dotenv").config();
 const express = require("express");
 const { createServer } = require("http");
@@ -6,15 +7,33 @@ const cors = require("cors");
 const { verifyToken } = require("@clerk/backend");
 
 const port = process.env.PORT || 3001;
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
+const socketInternalSecret = process.env.SOCKET_INTERNAL_SECRET;
 const app = express();
-app.use(cors());
+
+const allowedOrigins = Array.from(
+  new Set(
+    [appUrl, "http://localhost:3000", "http://127.0.0.1:3000"].filter(Boolean)
+  )
+);
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error("Not allowed by CORS"));
+  },
+  methods: ["GET", "POST"],
+};
+
+app.use(cors(corsOptions));
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: {
-    origin: "*", // Adjust in production to match your Vercel URL
-    methods: ["GET", "POST"]
-  }
+  cors: corsOptions,
 });
 
 app.get("/", (req, res) => {
@@ -28,6 +47,32 @@ const roomStates = new Map();
 // Matchmaking Queue
 let matchmakingQueue = [];
 
+function buildAppUrl(path) {
+  return `${appUrl.replace(/\/$/, "")}${path}`;
+}
+
+async function postInternal(path, payload) {
+  if (!socketInternalSecret) {
+    throw new Error("SOCKET_INTERNAL_SECRET is not configured");
+  }
+
+  const response = await fetch(buildAppUrl(path), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...payload,
+      secret: socketInternalSecret,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || `${path} failed with ${response.status}`);
+  }
+
+  return data;
+}
+
 // Clerk JWT verification middleware
 io.use(async (socket, next) => {
   const token = socket.handshake.auth.token;
@@ -39,7 +84,7 @@ io.use(async (socket, next) => {
     });
     socket.data.clerkUserId = verified.sub;
     next();
-  } catch (err) {
+  } catch {
     next(new Error("Authentication error: Invalid token"));
   }
 });
@@ -47,13 +92,22 @@ io.use(async (socket, next) => {
 io.on("connection", (socket) => {
   console.log(`[Socket] Connected: ${socket.id} (clerk: ${socket.data.clerkUserId})`);
 
-  socket.on("join-room", (roomCode) => {
-    socket.join(roomCode);
-    console.log(`[Socket] ${socket.id} joined room ${roomCode}`);
+  socket.on("join-room", async (roomCode) => {
+    try {
+      const roomAccess = await postInternal(`/api/rooms/${roomCode}/access`, {
+        clerkId: socket.data.clerkUserId,
+      });
 
-    io.to(roomCode).emit("room-update", {
-      status: roomStates.get(roomCode)?.status || "WAITING",
-    });
+      socket.join(roomCode);
+      console.log(`[Socket] ${socket.id} joined room ${roomCode}`);
+
+      io.to(roomCode).emit("room-update", {
+        status: roomStates.get(roomCode)?.status || roomAccess.status || "WAITING",
+      });
+    } catch (error) {
+      console.error("[Socket] Room join validation error:", error);
+      socket.emit("room-error", { message: "You do not have access to this room." });
+    }
   });
 
   socket.on("find-match", async () => {
@@ -74,30 +128,22 @@ io.on("connection", (socket) => {
       }
 
       // Generate a random room code (6 chars)
-      const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      console.log(`[Socket] Match found! Created room ${roomCode}. Syncing with DB...`);
+      const proposedRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      console.log(`[Socket] Match found! Creating room from queue...`);
 
       // Call internal Next.js API to create the room in DB
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/rooms/matchmaking`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            roomCode,
-            userIds: [socket.data.clerkUserId, opponentSocket.data.clerkUserId],
-            secret: process.env.SOCKET_INTERNAL_SECRET
-          })
+        const data = await postInternal("/api/rooms/matchmaking", {
+          roomCode: proposedRoomCode,
+          userIds: [socket.data.clerkUserId, opponentSocket.data.clerkUserId],
         });
-
-        if (!response.ok) throw new Error(`DB sync failed: ${response.status}`);
+        const roomCode = data.roomCode;
 
         // Tell both clients to join this room via routing
         opponentSocket.emit("match-found", { roomCode });
         socket.emit("match-found", { roomCode });
-      } catch (err) {
-        console.error("[Socket] Matchmaking DB sync error:", err);
-        // Put users back in queue if DB sync fails? 
-        // For now, just cancel for these users
+      } catch (error) {
+        console.error("[Socket] Matchmaking DB sync error:", error);
         socket.emit("match-error", { message: "Matchmaking failed. Please try again." });
         opponentSocket.emit("match-error", { message: "Matchmaking failed. Please try again." });
       }
@@ -112,6 +158,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("start-duel", async ({ roomCode, roomId }) => {
+    if (!socket.rooms.has(roomCode)) {
+      socket.emit("room-error", { message: "Join the room before starting the duel." });
+      return;
+    }
+
     let state = roomStates.get(roomCode);
     
     // Prevent multiple starts
@@ -124,16 +175,11 @@ io.on("connection", (socket) => {
 
     // Call internal Next.js API to generate questions
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/questions/generate/internal`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          roomId,
-          secret: process.env.SOCKET_INTERNAL_SECRET
-        })
+      await postInternal("/api/questions/generate/internal", {
+        roomId,
+        roomCode,
+        clerkId: socket.data.clerkUserId,
       });
-
-      if (!response.ok) throw new Error(`Generation failed: ${response.status}`);
 
       roomStates.set(roomCode, {
         status: "IN_PROGRESS",
@@ -153,35 +199,54 @@ io.on("connection", (socket) => {
         startQuestionTimer(io, roomCode, 0);
       }, 3000);
 
-    } catch (err) {
-      console.error("[Socket] Start duel error:", err);
-      socket.emit("room-error", { message: "Failed to start duel. Please try again." });
+    } catch (error) {
+      console.error("[Socket] Start duel error:", error);
+      socket.emit("room-error", {
+        message: error instanceof Error ? error.message : "Failed to start duel. Please try again.",
+      });
     }
   });
 
-  socket.on("submit-answer", ({ roomCode, roomId, questionId, selectedAnswer, timeTaken, score }) => {
+  socket.on("submit-answer", async ({ roomCode, roomId, questionId, selectedAnswer, timeTaken }) => {
     const state = roomStates.get(roomCode);
-    if (!state) return;
+    if (!state || !socket.rooms.has(roomCode)) return;
 
     const clerkId = socket.data.clerkUserId;
-    
-    // Update score
-    if (!state.scores[clerkId]) state.scores[clerkId] = 0;
-    state.scores[clerkId] += (score || 0);
 
-    // Broadcast score update to everyone in the room
-    io.to(roomCode).emit("score-update", { scores: state.scores });
+    try {
+      const result = await postInternal("/api/answers", {
+        roomId,
+        questionId,
+        selectedAnswer,
+        timeTaken,
+        clerkId,
+      });
 
-    socket.to(roomCode).emit("opponent-answered", { questionIndex: state.currentQuestion });
+      socket.emit("answer-result", result);
 
-    const qKey = `${state.currentQuestion}`;
-    if (!state.answeredCount[qKey]) state.answeredCount[qKey] = 0;
-    state.answeredCount[qKey]++;
+      if (!result.accepted) {
+        return;
+      }
 
-    const roomSockets = io.sockets.adapter.rooms.get(roomCode);
-    const playerCount = roomSockets ? roomSockets.size : 2;
-    if (state.answeredCount[qKey] >= playerCount) {
-      advanceQuestion(io, roomCode);
+      state.scores[clerkId] = result.totalScore;
+
+      io.to(roomCode).emit("score-update", { scores: state.scores });
+      socket.to(roomCode).emit("opponent-answered", { questionIndex: state.currentQuestion });
+
+      const qKey = `${state.currentQuestion}`;
+      if (!state.answeredCount[qKey]) state.answeredCount[qKey] = 0;
+      state.answeredCount[qKey]++;
+
+      const roomSockets = io.sockets.adapter.rooms.get(roomCode);
+      const playerCount = roomSockets ? roomSockets.size : 2;
+      if (state.answeredCount[qKey] >= playerCount) {
+        advanceQuestion(io, roomCode);
+      }
+    } catch (error) {
+      console.error("[Socket] Answer submission error:", error);
+      socket.emit("answer-error", {
+        message: error instanceof Error ? error.message : "Failed to submit answer.",
+      });
     }
   });
 

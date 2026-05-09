@@ -2,12 +2,12 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Trophy, Medal, ArrowLeft, RotateCcw, Check, X, Clock } from "lucide-react";
+import Image from "next/image";
+import { Trophy, Medal, ArrowLeft, RotateCcw } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import confetti from "canvas-confetti";
 
 interface PlayerResult { userId:string; username:string; imageUrl?:string|null; score:number; }
-interface AnswerData { questionId:string; selectedAnswer:string; isCorrect:boolean; timeTaken:number; score:number; }
 interface QuestionData { id:string; questionText:string; options:string[]; correctAnswer:string; explanation?:string; }
 
 export default function ResultsPage() {
@@ -17,7 +17,6 @@ export default function ResultsPage() {
 
   const [players, setPlayers] = useState<PlayerResult[]>([]);
   const [questions, setQuestions] = useState<QuestionData[]>([]);
-  const [answers, setAnswers] = useState<{[userId:string]:AnswerData[]}>({});
   const [myUserId, setMyUserId] = useState("");
   const [topic, setTopic] = useState("");
   const [roomCode, setRoomCode] = useState("");
@@ -30,18 +29,15 @@ export default function ResultsPage() {
         const userData = await userRes.json();
         setMyUserId(userData.id);
 
-        // We need to get room data by ID - use a small helper
-        const roomsRes = await fetch("/api/rooms");
-        const roomsData = await roomsRes.json();
-        const room = roomsData.find((r:{id:string})=>r.id===roomId);
-        if(!room){setLoading(false);return;}
-
-        setTopic(room.topic);
-        setRoomCode(room.code);
-
-        // Get full room with questions
-        const roomRes = await fetch(`/api/rooms/${room.code}`);
+        const roomRes = await fetch(`/api/results/${roomId}`);
         const fullRoom = await roomRes.json();
+        if (fullRoom.error) {
+          setLoading(false);
+          return;
+        }
+
+        setTopic(fullRoom.topic);
+        setRoomCode(fullRoom.code);
 
         setQuestions(fullRoom.questions||[]);
         const playerResults = (fullRoom.players||[]).map((p:{userId:string;score:number;user:{id:string;username:string;imageUrl?:string|null}})=>({
@@ -83,7 +79,18 @@ export default function ResultsPage() {
           <div className="flex items-center justify-center gap-8">
             {players.map((p,i)=>(
               <div key={p.userId} className="text-center">
-                <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center text-2xl font-bold mx-auto mb-2 ${i===0?"bg-accent text-bg-dark":"bg-surface"}`}>{p.username?.[0]?.toUpperCase()||"?"}</div>
+                {p.imageUrl ? (
+                  <Image
+                    src={p.imageUrl}
+                    alt={p.username}
+                    width={64}
+                    height={64}
+                    className={`w-16 h-16 rounded-[24px] object-cover mx-auto mb-2 ${i===0 ? "ring-2 ring-accent" : ""}`}
+                    unoptimized
+                  />
+                ) : (
+                  <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center text-2xl font-bold mx-auto mb-2 ${i===0?"bg-accent text-bg-dark":"bg-surface"}`}>{p.username?.[0]?.toUpperCase()||"?"}</div>
+                )}
                 <div className="font-medium text-sm">{p.username}</div>
                 <div className={`text-2xl font-bold font-mono mt-1 ${i===0?"text-accent":"text-text-secondary"}`}>{p.score}</div>
                 <div className="text-xs text-text-muted">points</div>

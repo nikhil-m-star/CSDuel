@@ -1,12 +1,14 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { Trophy, Medal, Award, Filter } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 interface LeaderboardEntry { id:string; username:string; imageUrl?:string|null; totalDuels:number; wins:number; winRate:number; totalScore:number; }
 
-const topicFilters = ["All","DSA","OS","DBMS","CN","OOPs"];
+const topicFilters = ["All","Mixed"];
 
 export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -66,7 +68,7 @@ export default function LeaderboardPage() {
                 <div className="col-span-1">{getRankIcon(i)}</div>
                 <div className="col-span-4 flex items-center gap-2">
                   {entry.imageUrl ? (
-                    <img src={entry.imageUrl} alt={entry.username} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                    <Image src={entry.imageUrl} alt={entry.username} width={32} height={32} className="w-8 h-8 rounded-full object-cover shrink-0" unoptimized />
                   ) : (
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 text-white ${i<3?"bg-primary":"bg-surface"}`}>{entry.username?.[0]?.toUpperCase()||"?"}</div>
                   )}
