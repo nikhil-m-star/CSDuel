@@ -51,7 +51,7 @@ export default function DashboardPage() {
         setIsQueuing(false);
         s.off("match-error", handleMatchError);
         disconnectSocket();
-        router.push(`/room/${roomCode}`);
+        router.push(`/room/${roomCode}?autoStart=1`);
       };
 
       const handleMatchError = ({ message }: { message?: string }) => {

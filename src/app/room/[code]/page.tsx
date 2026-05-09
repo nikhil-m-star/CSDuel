@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
@@ -22,9 +22,11 @@ interface AnswerResult {
 export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { getToken } = useAuth();
   const { user: clerkUser } = useUser();
   const code = (params.code as string)?.toUpperCase();
+  const isAutoStartMatch = searchParams.get("autoStart") === "1";
 
   const [roomData, setRoomData] = useState<{id:string;status:string;topic:string;players:Player[];questions:Question[];hostClerkId:string|null}|null>(null);
   const [phase, setPhase] = useState<"loading"|"waiting"|"countdown"|"playing"|"finished">("loading");
@@ -38,12 +40,14 @@ export default function RoomPage() {
   const [copied, setCopied] = useState(false);
   const [countdownNum, setCountdownNum] = useState(3);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSocketReady, setIsSocketReady] = useState(false);
   const [opponentAnswered, setOpponentAnswered] = useState(false);
   const [error, setError] = useState("");
 
   const socketRef = useRef<Socket|null>(null);
   const answerTimeRef = useRef<number>(0);
   const phaseRef = useRef(phase);
+  const autoStartTriggeredRef = useRef(false);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -89,9 +93,16 @@ export default function RoomPage() {
 
       const joinRoom = ()=>{socket.emit("join-room",code);};
 
-      socket.on("connect",joinRoom);
+      socket.on("connect",()=>{
+        setIsSocketReady(true);
+        joinRoom();
+      });
+      socket.on("disconnect",()=>{
+        setIsSocketReady(false);
+      });
 
       if (socket.connected) {
+        setIsSocketReady(true);
         joinRoom();
       }
 
@@ -163,6 +174,19 @@ export default function RoomPage() {
     }
   };
 
+  useEffect(() => {
+    if (!isAutoStartMatch || !roomData || !clerkUser?.id || !isSocketReady) return;
+    if (autoStartTriggeredRef.current) return;
+    if (isGenerating) return;
+    if (roomData.status !== "WAITING" || roomData.players.length < 2) return;
+    if (roomData.hostClerkId !== clerkUser.id) return;
+
+    autoStartTriggeredRef.current = true;
+    setError("");
+    setIsGenerating(true);
+    socketRef.current?.emit("start-duel",{roomCode:code,roomId:roomData?.id});
+  }, [isAutoStartMatch, roomData, clerkUser?.id, isSocketReady, isGenerating, code]);
+
   // Countdown
   useEffect(()=>{
     if(phase!=="countdown") return;
@@ -215,12 +239,14 @@ export default function RoomPage() {
         <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} className="glass rounded-2xl p-8 text-center">
           {error && <div className="mb-6 rounded-2xl border border-error/20 bg-error/10 px-4 py-3 text-sm font-medium text-error">{error}</div>}
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6"><Swords className="w-8 h-8 text-primary"/></div>
-          <h1 className="text-2xl font-bold mb-2">Duel Room</h1>
-          <p className="text-text-secondary mb-6">Share this code with your opponent</p>
-          <button onClick={copyCode} className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-surface border border-border-light hover:border-primary/30 transition-all cursor-pointer mb-8">
-            <span className="font-mono text-3xl tracking-[0.3em] text-primary font-bold">{code}</span>
-            {copied?<Check className="w-5 h-5 text-success"/>:<Copy className="w-5 h-5 text-text-muted"/>}
-          </button>
+          <h1 className="text-2xl font-bold mb-2">{isAutoStartMatch ? "Match Found" : "Duel Room"}</h1>
+          <p className="text-text-secondary mb-6">{isAutoStartMatch ? "Preparing your duel..." : "Share this code with your opponent"}</p>
+          {!isAutoStartMatch && (
+            <button onClick={copyCode} className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-surface border border-border-light hover:border-primary/30 transition-all cursor-pointer mb-8">
+              <span className="font-mono text-3xl tracking-[0.3em] text-primary font-bold">{code}</span>
+              {copied?<Check className="w-5 h-5 text-success"/>:<Copy className="w-5 h-5 text-text-muted"/>}
+            </button>
+          )}
           <div className="flex items-center justify-center gap-2 mb-4 text-sm text-text-muted"><span className="px-3 py-1 rounded-lg bg-surface">{roomData?.topic}</span></div>
           <div className="border-t border-border-light pt-6 mt-6">
             <p className="text-sm text-text-muted mb-4"><Users className="w-4 h-4 inline mr-1"/>Players ({roomData?.players?.length||0}/2)</p>
@@ -247,7 +273,7 @@ export default function RoomPage() {
               )}
             </div>
           </div>
-          {(roomData?.players?.length || 0) >= 2 && (
+          {!isAutoStartMatch && (roomData?.players?.length || 0) >= 2 && (
             roomData?.hostClerkId === clerkUser?.id ? (
               <button 
                 onClick={startDuel} 
@@ -265,6 +291,11 @@ export default function RoomPage() {
                 Waiting for host to start the duel...
               </div>
             )
+          )}
+          {isAutoStartMatch && (roomData?.players?.length || 0) >= 2 && (
+            <div className="mt-8 p-4 rounded-2xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
+              Starting duel automatically...
+            </div>
           )}
         </motion.div>
       </main>
