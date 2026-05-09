@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getResolvedRoomStatus } from "@/lib/room-completion";
 import { generateRoomCode } from "@/lib/utils";
 
 export async function POST() {
@@ -86,12 +87,33 @@ export async function GET(req: NextRequest) {
           orderBy: { id: "asc" },
           include: { user: true },
         },
+        questions: {
+          select: {
+            id: true,
+          },
+        },
+        answers: {
+          select: {
+            id: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
       take: limit,
     });
 
-    return NextResponse.json(rooms);
+    return NextResponse.json(
+      rooms.map((room) => {
+        const { answers, questions, ...roomData } = room;
+        void answers;
+        void questions;
+
+        return {
+          ...roomData,
+          status: getResolvedRoomStatus(room),
+        };
+      })
+    );
   } catch (error) {
     console.error("Room list error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

@@ -25,12 +25,12 @@ function normalizeQuestions(questions: MCQQuestion[]): MCQQuestion[] {
 function buildPrompt(avoidQuestionTexts: string[]): string {
   const avoidSection =
     avoidQuestionTexts.length > 0
-      ? `Avoid reusing or closely paraphrasing any of these recent questions:\n${avoidQuestionTexts
+      ? `Do not reuse or closely paraphrase these recent duel questions:\n${avoidQuestionTexts
           .map((question, index) => `${index + 1}. ${question}`)
           .join("\n")}\n`
       : "";
 
-  return `${avoidSection}Generate exactly 10 unique computer science MCQs for a fast 1v1 quiz duel. Cover DSA, OS, DBMS, CN, and OOP in a balanced way. Return a JSON array only with objects shaped like {"question":"...","options":["...","...","...","..."],"correctAnswer":"A"}. Each question must have exactly 4 options and correctAnswer must be one of A, B, C, D.`;
+  return `${avoidSection}Generate exactly 10 unique computer science MCQs for a fast 1v1 quiz duel. Keep the wording concise. Spread questions across DSA, OOP, DBMS, OS, and computer networks. Return only a JSON array with objects shaped like {"question":"...","options":["...","...","...","..."],"correctAnswer":"A"}. Use exactly 4 options and set correctAnswer to A, B, C, or D.`;
 }
 
 function extractJsonArray(rawContent: string): string {
@@ -78,9 +78,8 @@ export async function generateQuestions(
     .filter(Boolean);
   const exclusionWindows = Array.from(
     new Set([
-      Math.min(40, avoidQuestionTexts.length),
-      Math.min(25, avoidQuestionTexts.length),
-      Math.min(12, avoidQuestionTexts.length),
+      Math.min(18, avoidQuestionTexts.length),
+      Math.min(8, avoidQuestionTexts.length),
       0,
     ])
   );
@@ -99,18 +98,18 @@ export async function generateQuestions(
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "google/gemma-4-31b-it",
+          model: "google/gemma-3n-e4b-it",
           messages: [
             {
               role: "user",
               content: `Return only valid raw JSON. No markdown. No explanation outside JSON.\n\n${buildPrompt(activeAvoidList)}`,
             },
           ],
-          temperature: 0.3,
-          top_p: 0.85,
-          max_tokens: 1400,
+          temperature: 0.45,
+          top_p: 0.9,
+          max_tokens: 1000,
         }),
-        signal: AbortSignal.timeout(12000),
+        signal: AbortSignal.timeout(8000),
       });
 
       if (!response.ok) {

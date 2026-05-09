@@ -277,7 +277,7 @@ function startQuestionTimer(io, roomCode, questionIndex) {
   roomTimers.set(roomCode, timer);
 }
 
-function advanceQuestion(io, roomCode) {
+async function advanceQuestion(io, roomCode) {
   const state = roomStates.get(roomCode);
   if (!state) return;
 
@@ -290,6 +290,16 @@ function advanceQuestion(io, roomCode) {
 
   if (nextQuestion >= 10) {
     state.status = "COMPLETED";
+    try {
+      await postInternal("/api/rooms/complete", {
+        roomId: state.roomId,
+        roomCode,
+      });
+    } catch (error) {
+      console.error("[Socket] Room completion sync error:", error);
+    }
+
+    io.to(roomCode).emit("room-update", { status: "COMPLETED" });
     io.to(roomCode).emit("duel-end", { roomId: state.roomId });
     roomStates.delete(roomCode);
     return;

@@ -8,7 +8,7 @@ import { Trophy, Target, TrendingUp, TrendingDown, Swords, Clock, BarChart3, Log
 import Navbar from "@/components/Navbar";
 
 interface Stats { totalDuels:number; wins:number; losses:number; winRate:number; totalScore:number; strongestTopic:string; weakestTopic:string; }
-interface DuelHistory { id:string; code:string; topic:string; status:string; players:{score:number;user:{id:string;username:string}}[]; createdAt:string; }
+interface DuelHistory { id:string; code:string; topic:string; status:string; result:"WIN"|"LOSS"|"DRAW"; players:{score:number;user:{id:string;username:string}}[]; createdAt:string; }
 
 export default function ProfilePage() {
   const { user: clerkUser } = useUser();
@@ -24,31 +24,10 @@ export default function ProfilePage() {
         const user = await userRes.json();
         setMyUserId(user.id);
 
-        const roomsRes = await fetch("/api/rooms?limit=100&status=COMPLETED");
-        const rooms = await roomsRes.json();
-        if(!Array.isArray(rooms)) return;
-
-        setHistory(rooms);
-        const completed = rooms.filter((r:DuelHistory)=>r.status==="COMPLETED");
-        let wins=0; const topicScores:{[t:string]:{correct:number;total:number}}={};
-
-        completed.forEach((r:DuelHistory)=>{
-          const sorted = [...r.players].sort((a,b)=>b.score-a.score);
-          if(sorted[0]?.user.id===user.id && r.players.length>1) wins++;
-          // topic tracking
-          if(!topicScores[r.topic]) topicScores[r.topic]={correct:0,total:0};
-          const myPlayer = r.players.find(p=>p.user.id===user.id);
-          if(myPlayer){topicScores[r.topic].correct+=myPlayer.score; topicScores[r.topic].total+=150;}
-        });
-
-        let strongest="N/A",weakest="N/A",maxRate=0,minRate=Infinity;
-        Object.entries(topicScores).forEach(([topic,{correct,total}])=>{
-          const rate = total>0?correct/total:0;
-          if(rate>maxRate){maxRate=rate;strongest=topic;}
-          if(rate<minRate){minRate=rate;weakest=topic;}
-        });
-
-        setStats({totalDuels:completed.length,wins,losses:completed.length-wins,winRate:completed.length>0?Math.round((wins/completed.length)*1000)/10:0,totalScore:completed.reduce((sum:number,r:DuelHistory)=>{const p=r.players.find(p=>p.user.id===user.id);return sum+(p?.score||0);},0),strongestTopic:strongest,weakestTopic:weakest});
+        const profileRes = await fetch("/api/profile");
+        const profile = await profileRes.json();
+        if(profile?.stats) setStats(profile.stats);
+        if(Array.isArray(profile?.history)) setHistory(profile.history);
       } catch(e){console.error(e);}
     };
     load();
@@ -96,10 +75,9 @@ export default function ProfilePage() {
         <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.2}} className="glass rounded-2xl p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><Clock className="w-5 h-5 text-text-muted"/>Duel History</h2>
           {history.length===0?<p className="text-center text-text-muted py-8">No duels yet</p>:(
-            <div className="space-y-3">{history.filter(r=>r.status==="COMPLETED").map(room=>{
+            <div className="space-y-3">{history.map(room=>{
               const myPlayer = room.players.find(p=>p.user.id===myUserId);
               const opponent = room.players.find(p=>p.user.id!==myUserId);
-              const won = myPlayer&&opponent?myPlayer.score>opponent.score:false;
               return (
                 <button key={room.id} onClick={()=>router.push(`/results/${room.id}`)} className="w-full p-4 rounded-xl bg-surface/50 hover:bg-surface transition-all text-left cursor-pointer">
                   <div className="flex items-center justify-between">
@@ -108,7 +86,7 @@ export default function ProfilePage() {
                       <div className="text-sm">vs <span className="font-medium">{opponent?.user.username||"Unknown"}</span></div>
                     </div>
                     <div className="text-right">
-                      <div className={`text-sm font-bold ${won?"text-success":"text-error"}`}>{won?"WIN":"LOSS"}</div>
+                      <div className={`text-sm font-bold ${room.result==="WIN"?"text-success":room.result==="LOSS"?"text-error":"text-accent"}`}>{room.result}</div>
                       <div className="text-xs text-text-muted font-mono">{myPlayer?.score||0} - {opponent?.score||0}</div>
                     </div>
                   </div>

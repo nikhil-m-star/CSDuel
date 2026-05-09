@@ -1,19 +1,28 @@
 import { auth } from "@clerk/nextjs/server";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { buildLeaderboardEntries } from "@/lib/stats";
+import { buildProfilePayload } from "@/lib/stats";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const { userId: clerkId } = await auth();
     if (!clerkId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const topic = req.nextUrl.searchParams.get("topic");
+    const user = await prisma.user.findUnique({ where: { clerkId } });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     const rooms = await prisma.room.findMany({
-      where: topic ? { topic } : undefined,
+      where: {
+        players: {
+          some: {
+            userId: user.id,
+          },
+        },
+      },
       include: {
         players: {
           include: {
@@ -31,11 +40,14 @@ export async function GET(req: NextRequest) {
           },
         },
       },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
 
-    return NextResponse.json(buildLeaderboardEntries(rooms));
+    return NextResponse.json(buildProfilePayload(rooms, user.id));
   } catch (error) {
-    console.error("Leaderboard error:", error);
+    console.error("Profile stats error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

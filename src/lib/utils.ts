@@ -9,9 +9,11 @@ export function generateRoomCode(): string {
 
 export function calculateScore(isCorrect: boolean, timeTaken: number): number {
   if (!isCorrect) return 0;
-  const baseScore = 10;
-  const speedBonus = Math.floor(5 * (1 - timeTaken / 30));
-  return baseScore + Math.max(0, speedBonus);
+  const normalizedSpeed = Math.max(0, 1 - timeTaken / 30);
+  const baseScore = 5;
+  const speedBonus = Math.round(20 * normalizedSpeed * normalizedSpeed);
+  const urgencyBonus = timeTaken <= 5 ? 5 : timeTaken <= 10 ? 2 : 0;
+  return baseScore + speedBonus + urgencyBonus;
 }
 
 export function formatTime(seconds: number): string {

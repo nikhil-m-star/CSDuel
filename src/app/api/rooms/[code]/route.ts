@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getResolvedRoomStatus } from "@/lib/room-completion";
 
 export async function GET(
   _req: Request,
@@ -28,6 +29,11 @@ export async function GET(
         questions: {
           orderBy: { orderIndex: "asc" },
         },
+        answers: {
+          select: {
+            id: true,
+          },
+        },
       },
     });
 
@@ -51,8 +57,12 @@ export async function GET(
         orderIndex: question.orderIndex,
       }));
 
+    const { answers, ...roomData } = room;
+    void answers;
+
     return NextResponse.json({
-      ...room,
+      ...roomData,
+      status: getResolvedRoomStatus(room),
       hostClerkId: room.players[0]?.user.clerkId ?? null,
       questions,
     });

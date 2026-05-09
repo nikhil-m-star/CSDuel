@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 
 export async function getRecentQuestionHistory(
   userIds: string[],
-  limit = 40
+  limit = 18
 ): Promise<string[]> {
   if (userIds.length === 0 || limit <= 0) {
     return [];

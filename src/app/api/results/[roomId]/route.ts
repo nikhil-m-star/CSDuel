@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getResolvedRoomStatus } from "@/lib/room-completion";
 
 export async function GET(
   _req: Request,
@@ -28,6 +29,11 @@ export async function GET(
         questions: {
           orderBy: { orderIndex: "asc" },
         },
+        answers: {
+          select: {
+            id: true,
+          },
+        },
       },
     });
 
@@ -40,7 +46,13 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    return NextResponse.json(room);
+    const { answers, ...roomData } = room;
+    void answers;
+
+    return NextResponse.json({
+      ...roomData,
+      status: getResolvedRoomStatus(room),
+    });
   } catch (error) {
     console.error("Results fetch error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
