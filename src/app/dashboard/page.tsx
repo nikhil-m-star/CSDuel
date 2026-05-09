@@ -19,8 +19,17 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [showFriendMode, setShowFriendMode] = useState(false);
 
+  const ensureUserSynced = async () => {
+    const res = await fetch("/api/user");
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to sync user");
+    }
+    return data;
+  };
+
   useEffect(() => {
-    fetch("/api/user").catch(console.error);
+    ensureUserSynced().catch(console.error);
     fetch("/api/rooms").then(r=>r.json()).then(d=>{if(Array.isArray(d))setRecentRooms(d)}).catch(console.error);
     
     // Cleanup socket if we leave dashboard while queueing
@@ -33,6 +42,7 @@ export default function DashboardPage() {
     setIsQueuing(true);
     setError("");
     try {
+      await ensureUserSynced();
       const token = await getToken();
       if (!token) throw new Error("Not authenticated");
       const s = connectSocket(token);
@@ -71,6 +81,7 @@ export default function DashboardPage() {
   const handleCreate = async () => {
     setIsCreating(true);setError("");
     try {
+      await ensureUserSynced();
       const res = await fetch("/api/rooms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topic:"Mixed"})});
       const data = await res.json();
       if(!res.ok) throw new Error(data.error);
@@ -82,6 +93,7 @@ export default function DashboardPage() {
     if(!joinCode.trim()){setError("Enter a room code");return;}
     setIsJoining(true);setError("");
     try {
+      await ensureUserSynced();
       const res = await fetch(`/api/rooms/${joinCode.toUpperCase()}`,{method:"POST"});
       const data = await res.json();
       if(!res.ok) throw new Error(data.error);

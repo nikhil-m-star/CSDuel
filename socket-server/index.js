@@ -92,22 +92,19 @@ io.use(async (socket, next) => {
 io.on("connection", (socket) => {
   console.log(`[Socket] Connected: ${socket.id} (clerk: ${socket.data.clerkUserId})`);
 
-  socket.on("join-room", async (roomCode) => {
-    try {
-      const roomAccess = await postInternal(`/api/rooms/${roomCode}/access`, {
-        clerkId: socket.data.clerkUserId,
-      });
-
-      socket.join(roomCode);
-      console.log(`[Socket] ${socket.id} joined room ${roomCode}`);
-
-      io.to(roomCode).emit("room-update", {
-        status: roomStates.get(roomCode)?.status || roomAccess.status || "WAITING",
-      });
-    } catch (error) {
-      console.error("[Socket] Room join validation error:", error);
-      socket.emit("room-error", { message: "You do not have access to this room." });
+  socket.on("join-room", (roomCode) => {
+    const normalizedRoomCode = typeof roomCode === "string" ? roomCode.toUpperCase() : "";
+    if (!normalizedRoomCode) {
+      socket.emit("room-error", { message: "Invalid room code." });
+      return;
     }
+
+    socket.join(normalizedRoomCode);
+    console.log(`[Socket] ${socket.id} joined room ${normalizedRoomCode}`);
+
+    io.to(normalizedRoomCode).emit("room-update", {
+      status: roomStates.get(normalizedRoomCode)?.status || "WAITING",
+    });
   });
 
   socket.on("find-match", async () => {
