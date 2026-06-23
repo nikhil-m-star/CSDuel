@@ -2,7 +2,7 @@
 ### The Ultimate Real-Time Competitive Platform for Computer Science Mastery
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
 [![Socket.io](https://img.shields.io/badge/Socket.io-Real--Time-blue)](https://socket.io/)
 [![AI Powered](https://img.shields.io/badge/AI-NVIDIA%20NIM-red)](https://build.nvidia.com/)
 
@@ -32,7 +32,7 @@
 
 | Layer | Technology |
 | :--- | :--- |
-| **Framework** | Next.js 14 (App Router) |
+| **Framework** | Next.js 16 (App Router) |
 | **Real-time** | Socket.io (Standalone Node.js Server) |
 | **Database** | PostgreSQL via Neon |
 | **ORM** | Prisma |
