@@ -112,17 +112,21 @@ const MODEL_ATTEMPTS: ModelAttempt[] = [
   },
 ];
 
+import { getRandomFallbackQuestions } from "@/lib/fallback-questions";
+
 export async function generateQuestions(
   options: GenerateQuestionsOptions = {}
 ): Promise<MCQQuestion[]> {
   const apiKey = process.env.NVIDIA_NIM_API_KEY;
-  if (!apiKey) {
-    throw new Error("NVIDIA_NIM_API_KEY is missing");
-  }
-
   const avoidQuestionTexts = (options.avoidQuestionTexts ?? [])
     .map((question) => question.trim())
     .filter(Boolean);
+
+  if (!apiKey) {
+    console.warn("NVIDIA_NIM_API_KEY missing. Returning fallback question bank.");
+    return getRandomFallbackQuestions(10, avoidQuestionTexts);
+  }
+
   const exclusionWindows = Array.from(
     new Set([
       Math.min(18, avoidQuestionTexts.length),
@@ -187,5 +191,6 @@ export async function generateQuestions(
     }
   }
 
-  throw lastError ?? new Error("Question generation failed");
+  console.warn("AI generation failed or timed out. Serving fallback question bank.", lastError?.message);
+  return getRandomFallbackQuestions(10, avoidQuestionTexts);
 }
