@@ -66,7 +66,36 @@ export default function DashboardPage() {
       s.on("match-found", handleMatchFound);
       s.on("match-error", handleMatchError);
       
-      s.emit("find-match");
+      const sendFindMatch = () => {
+        s.emit("find-match");
+      };
+
+      if (s.connected) {
+        sendFindMatch();
+      } else {
+        s.once("connect", sendFindMatch);
+      }
+
+      // Fallback timer: if no opponent is online after 8s, create a practice duel
+      setTimeout(async () => {
+        if (s.connected && !s.disconnected) {
+          try {
+            const res = await fetch("/api/rooms", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ topic: "Mixed" }),
+            });
+            const data = await res.json();
+            if (res.ok && data.code) {
+              setIsQueuing(false);
+              disconnectSocket();
+              router.push(`/room/${data.code}?autoStart=1`);
+            }
+          } catch {
+            // keep queuing
+          }
+        }
+      }, 8000);
     } catch(e) {
       setError(e instanceof Error ? e.message : "Failed to enter matchmaking");
       setIsQueuing(false);

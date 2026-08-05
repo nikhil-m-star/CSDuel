@@ -110,6 +110,9 @@ io.on("connection", (socket) => {
   socket.on("find-match", async () => {
     console.log(`[Socket] ${socket.id} finding match`);
     
+    // Purge stale or disconnected sockets
+    matchmakingQueue = matchmakingQueue.filter(s => s.connected && !s.disconnected);
+
     // Check if player is already in queue
     const existingIndex = matchmakingQueue.findIndex(s => s.data.clerkUserId === socket.data.clerkUserId);
     if (existingIndex !== -1) return;
