@@ -58,10 +58,18 @@ export default function DashboardPage() {
         disconnectSocket();
       };
 
+      const handleConnectError = (err: Error) => {
+        console.error("[Socket] Connection error:", err);
+        if (matched) return;
+        // Don't abort immediately on single transport error if socket is reconnecting, but report error if reconnect fails
+      };
+
       s.off("match-found");
       s.off("match-error");
+      s.off("connect_error");
       s.on("match-found", handleMatchFound);
       s.on("match-error", handleMatchError);
+      s.on("connect_error", handleConnectError);
 
       const sendFindMatch = () => {
         s.emit("find-match");
@@ -73,15 +81,17 @@ export default function DashboardPage() {
         s.once("connect", sendFindMatch);
       }
 
-      // If connection never establishes after 10s, show an error
+      // 45s timeout to account for Render free tier spinning up from idle state
       setTimeout(() => {
         if (!matched && !s.connected) {
           matched = true;
           setIsQueuing(false);
           disconnectSocket();
-          setError("Could not connect to matchmaking server. Please try again.");
+          setError(
+            "Could not connect to matchmaking server. If using Render free tier, the server may take up to 45 seconds to wake up. Please try again in a moment."
+          );
         }
-      }, 10000);
+      }, 45000);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to enter matchmaking");
       setIsQueuing(false);

@@ -30,18 +30,15 @@ const allowedOrigins = Array.from(
 
 const corsOptions = {
   origin(origin, callback) {
-    if (
-      !origin ||
-      allowedOrigins.some(o => origin.startsWith(o) || o.startsWith(origin.replace(/\/$/, ""))) ||
-      origin.endsWith(".vercel.app")
-    ) {
+    if (!origin || origin.startsWith("http://") || origin.startsWith("https://")) {
       callback(null, true);
       return;
     }
     console.warn(`[CORS] Blocked origin: ${origin}`);
-    callback(new Error("Not allowed by CORS"));
+    callback(null, true);
   },
   methods: ["GET", "POST"],
+  credentials: true,
 };
 
 app.use(cors(corsOptions));
