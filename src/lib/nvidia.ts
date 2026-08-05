@@ -84,16 +84,16 @@ function buildMessages(prompt: string) {
 
 const MODEL_ATTEMPTS: ModelAttempt[] = [
   {
-    model: "google/gemma-3n-e4b-it",
+    model: "meta/llama-3.1-8b-instruct",
     timeoutMs: 24000,
-    maxTokens: 700,
+    maxTokens: 1000,
     temperature: 0.3,
     topP: 0.85,
   },
   {
-    model: "google/gemma-3n-e2b-it",
+    model: "meta/llama-3.3-70b-instruct",
     timeoutMs: 26000,
-    maxTokens: 700,
+    maxTokens: 1000,
     temperature: 0.3,
     topP: 0.85,
   },
