@@ -98,15 +98,15 @@ function buildMessages(prompt: string) {
 const MODEL_ATTEMPTS: ModelAttempt[] = [
   {
     model: "meta/llama-3.1-8b-instruct",
-    timeoutMs: 24000,
-    maxTokens: 1200,
+    timeoutMs: 35000,
+    maxTokens: 1100,
     temperature: 0.15,
     topP: 0.85,
   },
   {
     model: "meta/llama-3.3-70b-instruct",
-    timeoutMs: 26000,
-    maxTokens: 1200,
+    timeoutMs: 40000,
+    maxTokens: 1100,
     temperature: 0.15,
     topP: 0.85,
   },
