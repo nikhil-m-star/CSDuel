@@ -39,8 +39,17 @@ export async function generateQuestions(
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
+/** Remove seeding artifact prefixes like [Easy Concept 3] or (Item 12) from question text */
+function cleanQuestionText(text: string): string {
+  return text
+    .replace(/^\[(Easy|Medium|Hard)\s+(Concept|Question|Variant)\s+\d+\]\s*/i, "")
+    .replace(/^\[Variant\s+\d+\]\s*/i, "")
+    .replace(/\s*\(Item\s+\d+\)\s*$/i, "")
+    .trim();
+}
+
   return shuffled.slice(0, 10).map((q) => ({
-    question: q.questionText,
+    question: cleanQuestionText(q.questionText),
     options: q.options,
     correctAnswer: q.correctAnswer,
     topic: q.topic,

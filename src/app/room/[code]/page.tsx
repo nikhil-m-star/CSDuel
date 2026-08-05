@@ -440,18 +440,33 @@ export default function RoomPage() {
               <button
                 onClick={requestHint}
                 disabled={hintsLeft <= 0 || isHintLoading || !!selectedAnswer || !!answerResult}
-                className="px-4 py-2 rounded-xl bg-surface border border-border-light hover:border-accent/40 disabled:opacity-40 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface border border-border-light hover:border-accent/50 hover:bg-accent/5 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold transition-all cursor-pointer"
               >
                 {isHintLoading ? (
-                  <><Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />Generating Hint...</>
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin text-accent" /><span className="text-accent">Thinking...</span></>
+                ) : hintsLeft <= 0 ? (
+                  <><Lightbulb className="w-3.5 h-3.5 text-text-muted" /><span className="text-text-muted">No Hints Left</span></>
                 ) : (
-                  <><Lightbulb className="w-3.5 h-3.5 text-accent" />Ask AI Hint ({hintsLeft} Left)</>
+                  <><Lightbulb className="w-3.5 h-3.5 text-accent" /><span className="text-accent">Get AI Hint</span><span className="ml-1 px-1.5 py-0.5 rounded-md bg-accent/15 text-accent text-[10px] font-mono">{hintsLeft} left</span></>
                 )}
               </button>
             </div>
             {hintText && (
-              <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="p-3.5 rounded-xl bg-accent/10 border border-accent/20 text-xs text-text-primary">
-                <span className="font-bold text-accent">💡 AI Hint: </span>{hintText}
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                className="rounded-2xl border border-accent/25 bg-gradient-to-br from-accent/10 to-transparent p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-accent/20 flex items-center justify-center shrink-0 mt-0.5">
+                    <Lightbulb className="w-4 h-4 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-accent mb-1 uppercase tracking-wide">AI Hint</p>
+                    <p className="text-sm text-text-primary leading-relaxed">{hintText}</p>
+                  </div>
+                </div>
               </motion.div>
             )}
             {isAnswerPending&&!answerResult&&<p className="text-xs text-primary text-center animate-pulse">Answer locked in...</p>}
