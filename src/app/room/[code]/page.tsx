@@ -201,7 +201,7 @@ export default function RoomPage() {
     if (!isAutoStartMatch || !roomData || !clerkUser?.id || !isSocketReady) return;
     if (autoStartTriggeredRef.current) return;
     if (isGenerating) return;
-    if (roomData.status !== "WAITING" || roomData.players.length < 2) return;
+    if (roomData.status !== "WAITING") return;
     if (roomData.hostClerkId !== clerkUser.id) return;
 
     autoStartTriggeredRef.current = true;
