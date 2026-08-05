@@ -41,6 +41,8 @@ export default function DashboardPage() {
   const handleFindMatch = async () => {
     setIsQueuing(true);
     setError("");
+    let matched = false;
+
     try {
       await ensureUserSynced();
       const token = await getToken();
@@ -48,16 +50,16 @@ export default function DashboardPage() {
       const s = connectSocket(token);
 
       const handleMatchFound = ({ roomCode }: { roomCode: string }) => {
+        matched = true;
         setIsQueuing(false);
-        s.off("match-error", handleMatchError);
         disconnectSocket();
         router.push(`/room/${roomCode}?autoStart=1`);
       };
 
       const handleMatchError = ({ message }: { message?: string }) => {
+        matched = true;
         setError(message || "Matchmaking failed. Please try again.");
         setIsQueuing(false);
-        s.off("match-found", handleMatchFound);
         disconnectSocket();
       };
 
@@ -65,8 +67,9 @@ export default function DashboardPage() {
       s.off("match-error");
       s.on("match-found", handleMatchFound);
       s.on("match-error", handleMatchError);
-      
+
       const sendFindMatch = () => {
+        console.log("[Matchmaking] Emitting find-match");
         s.emit("find-match");
       };
 
@@ -76,27 +79,28 @@ export default function DashboardPage() {
         s.once("connect", sendFindMatch);
       }
 
-      // Fallback timer: if no opponent is online after 8s, create a practice duel
+      // Fallback: no opponent after 12s → enter a solo practice room
       setTimeout(async () => {
-        if (s.connected && !s.disconnected) {
-          try {
-            const res = await fetch("/api/rooms", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ topic: "Mixed" }),
-            });
-            const data = await res.json();
-            if (res.ok && data.code) {
-              setIsQueuing(false);
-              disconnectSocket();
-              router.push(`/room/${data.code}?autoStart=1`);
-            }
-          } catch {
-            // keep queuing
+        if (matched) return;
+        console.log("[Matchmaking] No opponent found, creating practice room...");
+        try {
+          const res = await fetch("/api/rooms", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ topic: "Mixed" }),
+          });
+          const data = await res.json();
+          if (res.ok && data.code) {
+            matched = true;
+            setIsQueuing(false);
+            disconnectSocket();
+            router.push(`/room/${data.code}?autoStart=1`);
           }
+        } catch {
+          // keep queuing silently
         }
-      }, 8000);
-    } catch(e) {
+      }, 12000);
+    } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to enter matchmaking");
       setIsQueuing(false);
     }

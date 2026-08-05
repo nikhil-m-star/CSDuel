@@ -104,18 +104,20 @@ export default function RoomPage() {
       socket = connectSocket(token);
       socketRef.current = socket;
 
-      const joinRoom = ()=>{socket.emit("join-room",code);};
+      const joinRoom = () => {
+        socket.emit("join-room", code);
+        // Small delay so join-room is processed by server before any start-duel
+        setTimeout(() => setIsSocketReady(true), 300);
+      };
 
-      socket.on("connect",()=>{
-        setIsSocketReady(true);
+      socket.on("connect", () => {
         joinRoom();
       });
-      socket.on("disconnect",()=>{
+      socket.on("disconnect", () => {
         setIsSocketReady(false);
       });
 
       if (socket.connected) {
-        setIsSocketReady(true);
         joinRoom();
       }
 
@@ -201,13 +203,16 @@ export default function RoomPage() {
     if (!isAutoStartMatch || !roomData || !clerkUser?.id || !isSocketReady) return;
     if (autoStartTriggeredRef.current) return;
     if (isGenerating) return;
-    if (roomData.status !== "WAITING") return;
+    if (roomData.status === "COMPLETED") return;
     if (roomData.hostClerkId !== clerkUser.id) return;
 
     autoStartTriggeredRef.current = true;
     setError("");
     setIsGenerating(true);
-    socketRef.current?.emit("start-duel",{roomCode:code,roomId:roomData?.id});
+    // Small delay ensures join-room was already processed server-side
+    setTimeout(() => {
+      socketRef.current?.emit("start-duel", { roomCode: code, roomId: roomData?.id });
+    }, 300);
   }, [isAutoStartMatch, roomData, clerkUser?.id, isSocketReady, isGenerating, code]);
 
   // Safety timeout if question generation hangs

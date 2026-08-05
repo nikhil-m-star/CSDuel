@@ -32,13 +32,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Room mismatch" }, { status: 400 });
     }
 
-    if (room.players.length < 2) {
-      return NextResponse.json({ error: "Two players are required to start a duel" }, { status: 400 });
+    if (room.players.length < 1) {
+      return NextResponse.json({ error: "At least one player is required to start a duel" }, { status: 400 });
     }
 
-    const hostClerkId = room.players[0]?.user.clerkId;
-    if (typeof clerkId === "string" && hostClerkId && clerkId !== hostClerkId) {
-      return NextResponse.json({ error: "Only the host can start the duel" }, { status: 403 });
+    // Only enforce host restriction when there are multiple players
+    if (room.players.length > 1) {
+      const hostClerkId = room.players[0]?.user.clerkId;
+      if (typeof clerkId === "string" && hostClerkId && clerkId !== hostClerkId) {
+        return NextResponse.json({ error: "Only the host can start the duel" }, { status: 403 });
+      }
     }
 
     if (room.status === "COMPLETED") {

@@ -158,9 +158,10 @@ io.on("connection", (socket) => {
   });
 
   socket.on("start-duel", async ({ roomCode, roomId }) => {
+    // Auto-join room if socket isn't in it yet (handles matchmaking race)
     if (!socket.rooms.has(roomCode)) {
-      socket.emit("room-error", { message: "Join the room before starting the duel." });
-      return;
+      socket.join(roomCode);
+      console.log(`[Socket] Auto-joined ${socket.id} to room ${roomCode} for start-duel`);
     }
 
     let state = roomStates.get(roomCode);
