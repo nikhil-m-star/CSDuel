@@ -109,12 +109,11 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="mt-16 grid grid-cols-3 gap-6 max-w-xl mx-auto"
+            className="mt-16 grid grid-cols-2 gap-6 max-w-md mx-auto"
           >
             {[
-              { label: "Topics", value: "4+", icon: Brain },
+              { label: "Topics", value: "5", icon: Brain },
               { label: "Questions/Duel", value: "10", icon: Zap },
-              { label: "Max Points", value: "150", icon: Trophy },
             ].map((stat, i) => (
               <div key={i} className="glass rounded-2xl p-4 text-center">
                 <stat.icon className="w-5 h-5 text-primary mx-auto mb-2" />
