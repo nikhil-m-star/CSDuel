@@ -103,13 +103,6 @@ const MODEL_ATTEMPTS: ModelAttempt[] = [
     temperature: 0.15,
     topP: 0.85,
   },
-  {
-    model: "meta/llama-3.3-70b-instruct",
-    timeoutMs: 40000,
-    maxTokens: 1100,
-    temperature: 0.15,
-    topP: 0.85,
-  },
 ];
 
 import { getRandomFallbackQuestions } from "@/lib/fallback-questions";
