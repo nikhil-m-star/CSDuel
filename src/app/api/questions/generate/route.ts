@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     // If questions already exist, return them (idempotent)
     if (room.questions.length > 0) {
       return NextResponse.json({
-        questions: room.questions.map((question) => ({
+        questions: room.questions.slice(0, 10).map((question) => ({
           id: question.id,
           roomId: question.roomId,
           topic: question.topic,
@@ -62,7 +62,6 @@ export async function POST(req: Request) {
       });
     }
 
-    // Generate new questions via NVIDIA NIM
     const recentQuestionTexts = await getRecentQuestionHistory(
       room.players.map((player) => player.userId)
     );
@@ -70,21 +69,30 @@ export async function POST(req: Request) {
       avoidQuestionTexts: recentQuestionTexts,
     });
 
-    // Store questions in DB
-    const savedQuestions = await Promise.all(
-      generatedQuestions.map((q, index) =>
-        prisma.question.create({
-          data: {
+    await prisma.$transaction(async (tx) => {
+      const existingCount = await tx.question.count({
+        where: { roomId: room.id },
+      });
+
+      if (existingCount === 0) {
+        await tx.question.createMany({
+          data: generatedQuestions.slice(0, 10).map((q, index) => ({
             roomId: room.id,
             topic: room.topic,
             questionText: q.question,
             options: q.options,
             correctAnswer: q.correctAnswer,
             orderIndex: index,
-          },
-        })
-      )
-    );
+          })),
+        });
+      }
+    });
+
+    const savedQuestions = await prisma.question.findMany({
+      where: { roomId: room.id },
+      orderBy: { orderIndex: "asc" },
+      take: 10,
+    });
 
     return NextResponse.json({
       questions: savedQuestions.map((question) => ({

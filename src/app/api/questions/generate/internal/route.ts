@@ -63,19 +63,29 @@ export async function POST(req: Request) {
       avoidQuestionTexts: recentQuestionTexts,
     });
     
-    await prisma.room.update({
-      where: { id: roomId },
-      data: {
-        status: "IN_PROGRESS",
-        questions: {
-          create: questions.map((q, i) => ({
-            topic: "Mixed",
+    await prisma.$transaction(async (tx) => {
+      const existingCount = await tx.question.count({
+        where: { roomId: room.id },
+      });
+
+      if (existingCount === 0) {
+        await tx.question.createMany({
+          data: questions.slice(0, 10).map((q, i) => ({
+            roomId: room.id,
+            topic: room.topic || "Mixed",
             questionText: q.question,
             options: q.options,
             correctAnswer: q.correctAnswer,
-            orderIndex: i
-          }))
-        }
+            orderIndex: i,
+          })),
+        });
+      }
+
+      if (room.status !== "IN_PROGRESS") {
+        await tx.room.update({
+          where: { id: room.id },
+          data: { status: "IN_PROGRESS" },
+        });
       }
     });
 

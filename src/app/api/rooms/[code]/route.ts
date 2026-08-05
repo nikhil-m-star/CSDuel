@@ -28,6 +28,7 @@ export async function GET(
         },
         questions: {
           orderBy: { orderIndex: "asc" },
+          take: 10,
         },
         answers: {
           select: {
@@ -47,7 +48,7 @@ export async function GET(
     }
 
     const questions =
-      room.questions.map((question) => ({
+      room.questions.slice(0, 10).map((question) => ({
         id: question.id,
         roomId: question.roomId,
         topic: question.topic,

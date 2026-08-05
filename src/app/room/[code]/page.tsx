@@ -259,7 +259,7 @@ export default function RoomPage() {
   },[timeLeft,phase,selectedAnswer,roomData,submitAnswer]);
 
   const question = roomData?.questions?.[currentQ];
-  const totalQuestions = roomData?.questions?.length||10;
+  const totalQuestions = Math.min(10, roomData?.questions?.length || 10);
 
   if(phase==="loading") return (
     <div className="min-h-screen grid-pattern flex items-center justify-center">
