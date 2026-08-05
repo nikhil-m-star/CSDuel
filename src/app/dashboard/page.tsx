@@ -34,64 +34,17 @@ export default function DashboardPage() {
   const handleFindMatch = async () => {
     setIsQueuing(true);
     setError("");
-    let matched = false;
 
     try {
       await ensureUserSynced();
-      const token = await getToken();
-      if (!token) throw new Error("Not authenticated");
-      const s = connectSocket(token);
+      const res = await fetch("/api/matchmaking/find", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to enter matchmaking");
 
-      const handleMatchFound = ({ roomCode }: { roomCode: string }) => {
-        if (matched) return;
-        matched = true;
-        setIsQueuing(false);
-        disconnectSocket();
-        router.push(`/room/${roomCode}?autoStart=1`);
-      };
-
-      const handleMatchError = ({ message }: { message?: string }) => {
-        if (matched) return;
-        matched = true;
-        setError(message || "Matchmaking failed. Please try again.");
-        setIsQueuing(false);
-        disconnectSocket();
-      };
-
-      const handleConnectError = (err: Error) => {
-        console.error("[Socket] Connection error:", err);
-        if (matched) return;
-        // Don't abort immediately on single transport error if socket is reconnecting, but report error if reconnect fails
-      };
-
-      s.off("match-found");
-      s.off("match-error");
-      s.off("connect_error");
-      s.on("match-found", handleMatchFound);
-      s.on("match-error", handleMatchError);
-      s.on("connect_error", handleConnectError);
-
-      const sendFindMatch = () => {
-        s.emit("find-match");
-      };
-
-      if (s.connected) {
-        sendFindMatch();
-      } else {
-        s.once("connect", sendFindMatch);
-      }
-
-      // 45s timeout to account for Render free tier spinning up from idle state
-      setTimeout(() => {
-        if (!matched && !s.connected) {
-          matched = true;
-          setIsQueuing(false);
-          disconnectSocket();
-          setError(
-            "Could not connect to matchmaking server. If using Render free tier, the server may take up to 45 seconds to wake up. Please try again in a moment."
-          );
-        }
-      }, 45000);
+      router.push(`/room/${data.roomCode}?autoStart=1`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to enter matchmaking");
       setIsQueuing(false);
@@ -100,11 +53,6 @@ export default function DashboardPage() {
 
   const cancelMatch = () => {
     setIsQueuing(false);
-    const s = getSocket();
-    if (s?.connected) {
-      s.emit("cancel-match");
-    }
-    disconnectSocket();
   };
 
   const handleCreate = async () => {

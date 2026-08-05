@@ -218,11 +218,15 @@ io.on("connection", (socket) => {
     console.log(`[Socket] Starting duel in room ${roomCode} (ID: ${roomId})`);
 
     try {
-      await postInternal("/api/questions/generate/internal", {
-        roomId,
-        roomCode,
-        clerkId: socket.data.clerkUserId,
-      });
+      try {
+        await postInternal("/api/questions/generate/internal", {
+          roomId,
+          roomCode,
+          clerkId: socket.data.clerkUserId,
+        });
+      } catch (err) {
+        console.warn("[Socket] Question sync warning:", err.message);
+      }
 
       roomStates.set(roomCode, {
         status: "IN_PROGRESS",

@@ -81,9 +81,13 @@ export default function RoomPage() {
     }
   }, [code, router]);
 
-  useEffect(()=>{
+  useEffect(() => {
     fetchRoomData();
-  },[fetchRoomData]);
+    if (roomData?.status === "WAITING" || (roomData?.players?.length ?? 0) < 2) {
+      const interval = setInterval(fetchRoomData, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [fetchRoomData, roomData?.status, roomData?.players?.length]);
 
   useEffect(() => {
     if (!roomData || !clerkUser?.id) return;
@@ -187,12 +191,19 @@ export default function RoomPage() {
 
   const copyCode = ()=>{navigator.clipboard.writeText(code);setCopied(true);setTimeout(()=>setCopied(false),2000);};
 
-  const startDuel = async ()=>{
-    if(isGenerating) return;
+  const startDuel = async () => {
+    if (isGenerating) return;
     setError("");
     setIsGenerating(true);
     try {
-      socketRef.current?.emit("start-duel",{roomCode:code,roomId:roomData?.id});
+      if (roomData?.id) {
+        await fetch("/api/questions/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ roomId: roomData.id }),
+        }).catch(() => {});
+      }
+      socketRef.current?.emit("start-duel", { roomCode: code, roomId: roomData?.id });
     } catch {
       autoStartTriggeredRef.current = false;
       setIsGenerating(false);
@@ -201,17 +212,17 @@ export default function RoomPage() {
 
   useEffect(() => {
     if (!isAutoStartMatch || !roomData || !clerkUser?.id || !isSocketReady) return;
+    if ((roomData.players?.length ?? 0) < 2) return;
     if (autoStartTriggeredRef.current) return;
     if (isGenerating) return;
-    if (roomData.status === "COMPLETED") return;
+    if (roomData.status === "COMPLETED" || roomData.status === "IN_PROGRESS") return;
     if (roomData.hostClerkId !== clerkUser.id) return;
 
     autoStartTriggeredRef.current = true;
     setError("");
     setIsGenerating(true);
-    // Small delay ensures join-room was already processed server-side
     setTimeout(() => {
-      socketRef.current?.emit("start-duel", { roomCode: code, roomId: roomData?.id });
+      startDuel();
     }, 300);
   }, [isAutoStartMatch, roomData, clerkUser?.id, isSocketReady, isGenerating, code]);
 
