@@ -7,8 +7,15 @@ const cors = require("cors");
 const { verifyToken } = require("@clerk/backend");
 
 const port = process.env.PORT || 3001;
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
+const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
 const socketInternalSecret = process.env.SOCKET_INTERNAL_SECRET;
+
+// Log config on startup so Render logs show exactly what URLs are in use
+console.log(`[Config] App URL: ${appUrl}`);
+console.log(`[Config] Port: ${port}`);
+console.log(`[Config] Internal secret configured: ${!!socketInternalSecret}`);
+console.log(`[Config] Clerk secret configured: ${!!process.env.CLERK_SECRET_KEY}`);
+
 const app = express();
 
 const allowedOrigins = Array.from(
@@ -19,11 +26,11 @@ const allowedOrigins = Array.from(
 
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.some(o => origin.startsWith(o))) {
       callback(null, true);
       return;
     }
-
+    console.warn(`[CORS] Blocked origin: ${origin}`);
     callback(new Error("Not allowed by CORS"));
   },
   methods: ["GET", "POST"],
@@ -34,10 +41,21 @@ app.use(cors(corsOptions));
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: corsOptions,
+  pingTimeout: 20000,
+  pingInterval: 10000,
 });
 
 app.get("/", (req, res) => {
   res.send("CSDuel Socket Server is running!");
+});
+
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    appUrl,
+    queueLength: matchmakingQueue.length,
+    secretConfigured: !!socketInternalSecret,
+  });
 });
 
 // In-memory room state for timer management
@@ -47,16 +65,15 @@ const roomStates = new Map();
 // Matchmaking Queue
 let matchmakingQueue = [];
 
-function buildAppUrl(path) {
-  return `${appUrl.replace(/\/$/, "")}${path}`;
-}
-
 async function postInternal(path, payload) {
   if (!socketInternalSecret) {
-    throw new Error("SOCKET_INTERNAL_SECRET is not configured");
+    throw new Error("SOCKET_INTERNAL_SECRET is not configured on the socket server");
   }
 
-  const response = await fetch(buildAppUrl(path), {
+  const url = `${appUrl}${path}`;
+  console.log(`[postInternal] POST ${url}`);
+
+  const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -67,6 +84,7 @@ async function postInternal(path, payload) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
+    console.error(`[postInternal] ${path} returned ${response.status}:`, data);
     throw new Error(data.error || `${path} failed with ${response.status}`);
   }
 
@@ -84,7 +102,8 @@ io.use(async (socket, next) => {
     });
     socket.data.clerkUserId = verified.sub;
     next();
-  } catch {
+  } catch (err) {
+    console.error("[Auth] Token verification failed:", err.message);
     next(new Error("Authentication error: Invalid token"));
   }
 });
@@ -108,46 +127,56 @@ io.on("connection", (socket) => {
   });
 
   socket.on("find-match", async () => {
-    console.log(`[Socket] ${socket.id} finding match`);
-    
-    // Purge stale or disconnected sockets
-    matchmakingQueue = matchmakingQueue.filter(s => s.connected && !s.disconnected);
+    const clerkId = socket.data.clerkUserId;
+    console.log(`[Matchmaking] find-match from ${socket.id} (clerk: ${clerkId})`);
 
-    // Check if player is already in queue
-    const existingIndex = matchmakingQueue.findIndex(s => s.data.clerkUserId === socket.data.clerkUserId);
-    if (existingIndex !== -1) return;
+    // Purge stale / disconnected sockets from queue
+    matchmakingQueue = matchmakingQueue.filter(s => s.connected);
+    console.log(`[Matchmaking] Queue length after purge: ${matchmakingQueue.length}`);
+
+    // Prevent duplicate queue entries for same user
+    const alreadyQueued = matchmakingQueue.some(s => s.data.clerkUserId === clerkId);
+    if (alreadyQueued) {
+      console.log(`[Matchmaking] ${clerkId} already in queue, ignoring`);
+      return;
+    }
 
     if (matchmakingQueue.length > 0) {
-      // We found a match!
+      // Pop opponent from front of queue
       const opponentSocket = matchmakingQueue.shift();
-      
-      // Don't match with self
-      if (opponentSocket.data.clerkUserId === socket.data.clerkUserId) {
+
+      // Sanity check: don't match with self
+      if (opponentSocket.data.clerkUserId === clerkId) {
+        console.log(`[Matchmaking] Self-match prevented for ${clerkId}`);
+        matchmakingQueue.unshift(opponentSocket); // put back
         matchmakingQueue.push(socket);
         return;
       }
 
-      // Generate a random room code (6 chars)
-      const proposedRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      console.log(`[Socket] Match found! Creating room from queue...`);
+      console.log(`[Matchmaking] Pairing ${clerkId} ↔ ${opponentSocket.data.clerkUserId}`);
 
-      // Call internal Next.js API to create the room in DB
       try {
         const data = await postInternal("/api/rooms/matchmaking", {
-          roomCode: proposedRoomCode,
-          userIds: [socket.data.clerkUserId, opponentSocket.data.clerkUserId],
+          userIds: [clerkId, opponentSocket.data.clerkUserId],
         });
-        const roomCode = data.roomCode;
 
-        // Tell both clients to join this room via routing
+        const roomCode = data.roomCode;
+        console.log(`[Matchmaking] Room created: ${roomCode} — notifying both clients`);
+
         opponentSocket.emit("match-found", { roomCode });
         socket.emit("match-found", { roomCode });
       } catch (error) {
-        console.error("[Socket] Matchmaking DB sync error:", error);
-        socket.emit("match-error", { message: "Matchmaking failed. Please try again." });
-        opponentSocket.emit("match-error", { message: "Matchmaking failed. Please try again." });
+        console.error("[Matchmaking] Room creation failed:", error.message);
+        const errMsg = error.message.includes("SOCKET_INTERNAL_SECRET")
+          ? "Server configuration error. Please contact support."
+          : "Matchmaking failed. Please try again.";
+        socket.emit("match-error", { message: errMsg });
+        opponentSocket.emit("match-error", { message: errMsg });
+        // Put opponent back in queue so they can retry
+        if (opponentSocket.connected) matchmakingQueue.push(opponentSocket);
       }
     } else {
+      console.log(`[Matchmaking] No opponent found, adding ${clerkId} to queue`);
       matchmakingQueue.push(socket);
     }
   });
@@ -165,7 +194,7 @@ io.on("connection", (socket) => {
     }
 
     let state = roomStates.get(roomCode);
-    
+
     // Prevent multiple starts
     if (state && state.status === "IN_PROGRESS") {
       console.log(`[Socket] Duel already in progress for room ${roomCode}`);
@@ -174,7 +203,6 @@ io.on("connection", (socket) => {
 
     console.log(`[Socket] Starting duel in room ${roomCode} (ID: ${roomId})`);
 
-    // Call internal Next.js API to generate questions
     try {
       await postInternal("/api/questions/generate/internal", {
         roomId,
@@ -193,9 +221,7 @@ io.on("connection", (socket) => {
       state = roomStates.get(roomCode);
       io.to(roomCode).emit("room-update", { status: "IN_PROGRESS" });
 
-      // Start countdown then questions
       setTimeout(() => {
-        // Fetch fresh room data to get questions (client will do this on duel-start)
         io.to(roomCode).emit("duel-start", { questions: [] });
         startQuestionTimer(io, roomCode, 0);
       }, 3000);
@@ -230,7 +256,6 @@ io.on("connection", (socket) => {
       }
 
       state.scores[clerkId] = result.totalScore;
-
       io.to(roomCode).emit("score-update", { scores: state.scores });
 
       const qKey = `${state.currentQuestion}`;
@@ -316,5 +341,6 @@ async function advanceQuestion(io, roomCode) {
 }
 
 httpServer.listen(port, () => {
-  console.log(`> Standalone CSDuel Socket Server running on port ${port}`);
+  console.log(`> CSDuel Socket Server running on port ${port}`);
+  console.log(`> Expecting Next.js app at: ${appUrl}`);
 });
