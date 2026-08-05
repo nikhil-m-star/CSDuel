@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { Copy, Check, Users, Loader2, Swords, Timer, Zap, RefreshCw } from "lucide-react";
+import { Copy, Check, Users, Loader2, Swords, Timer, Zap, RefreshCw, Lightbulb } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
 import { calculateScore } from "@/lib/utils";
@@ -43,6 +43,9 @@ export default function RoomPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSocketReady, setIsSocketReady] = useState(false);
   const [error, setError] = useState("");
+  const [hintsLeft, setHintsLeft] = useState(3);
+  const [hintText, setHintText] = useState("");
+  const [isHintLoading, setIsHintLoading] = useState(false);
 
   const socketRef = useRef<Socket|null>(null);
   const answerTimeRef = useRef<number>(0);
@@ -50,6 +53,10 @@ export default function RoomPage() {
   const optimisticScoreRef = useRef<number|null>(null);
   const phaseRef = useRef(phase);
   const autoStartTriggeredRef = useRef(false);
+
+  useEffect(() => {
+    setHintText("");
+  }, [currentQ]);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -261,6 +268,27 @@ export default function RoomPage() {
   const question = roomData?.questions?.[currentQ];
   const totalQuestions = Math.min(10, roomData?.questions?.length || 10);
 
+  const requestHint = async () => {
+    if (hintsLeft <= 0 || isHintLoading || !question || !roomData) return;
+    setIsHintLoading(true);
+    try {
+      const res = await fetch("/api/hints/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId: roomData.id, questionId: question.id }),
+      });
+      const data = await res.json();
+      if (data.hint) {
+        setHintText(data.hint);
+        setHintsLeft((prev) => prev - 1);
+      }
+    } catch {
+      setHintText("Focus on standard definitions for this topic.");
+    } finally {
+      setIsHintLoading(false);
+    }
+  };
+
   if(phase==="loading") return (
     <div className="min-h-screen grid-pattern flex items-center justify-center">
       <Loader2 className="w-8 h-8 text-primary animate-spin"/>
@@ -403,6 +431,24 @@ export default function RoomPage() {
                 );
               })}
             </div>
+            <div className="flex items-center justify-between pt-1">
+              <button
+                onClick={requestHint}
+                disabled={hintsLeft <= 0 || isHintLoading || !!selectedAnswer || !!answerResult}
+                className="px-4 py-2 rounded-xl bg-surface border border-border-light hover:border-accent/40 disabled:opacity-40 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+              >
+                {isHintLoading ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />Generating Hint...</>
+                ) : (
+                  <><Lightbulb className="w-3.5 h-3.5 text-accent" />Ask AI Hint ({hintsLeft} Left)</>
+                )}
+              </button>
+            </div>
+            {hintText && (
+              <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="p-3.5 rounded-xl bg-accent/10 border border-accent/20 text-xs text-text-primary">
+                <span className="font-bold text-accent">💡 AI Hint: </span>{hintText}
+              </motion.div>
+            )}
             {isAnswerPending&&!answerResult&&<p className="text-xs text-primary text-center animate-pulse">Answer locked in...</p>}
             {answerResult&&(
               <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className={`rounded-xl p-4 ${answerResult.isCorrect?"bg-success/10 border border-success/20":"bg-error/10 border border-error/20"}`}>

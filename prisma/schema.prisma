@@ -80,3 +80,13 @@ model Answer {
 
   @@unique([roomId, userId, questionId])
 }
+
+model QuestionBank {
+  id            String   @id @default(cuid())
+  topic         String
+  questionText  String   @unique
+  options       String[]
+  correctAnswer String
+  explanation   String?
+  createdAt     DateTime @default(now())
+}

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Trophy, Medal, ArrowLeft, RotateCcw } from "lucide-react";
+import { Trophy, Medal, ArrowLeft, RotateCcw, Sparkles, Loader2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import confetti from "canvas-confetti";
 
@@ -21,6 +21,33 @@ export default function ResultsPage() {
   const [topic, setTopic] = useState("");
   const [roomCode, setRoomCode] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const [analysisText, setAnalysisText] = useState("");
+  const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
+
+  const generateAnalysis = async () => {
+    if (isAnalysisLoading || analysisText) return;
+    setIsAnalysisLoading(true);
+    setAnalysisError("");
+    try {
+      const res = await fetch("/api/analysis/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId }),
+      });
+      const data = await res.json();
+      if (data.analysis) {
+        setAnalysisText(data.analysis);
+      } else {
+        setAnalysisError(data.error || "Failed to generate AI analysis");
+      }
+    } catch {
+      setAnalysisError("Failed to connect to AI analysis service");
+    } finally {
+      setIsAnalysisLoading(false);
+    }
+  };
 
   useEffect(()=>{
     const load = async ()=>{
@@ -98,6 +125,39 @@ export default function ResultsPage() {
             ))}
           </div>
           <div className="mt-4 text-xs text-text-muted">Room: <span className="font-mono text-primary">{roomCode}</span> • Topic: {topic}</div>
+        </motion.div>
+
+        {/* AI Analysis Section */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="glass rounded-2xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-accent" /> AI Match Analysis
+              </h2>
+              <p className="text-xs text-text-muted mt-0.5">Get an AI breakdown of user answers, speed, and key CS concepts missed</p>
+            </div>
+            {!analysisText && (
+              <button
+                onClick={generateAnalysis}
+                disabled={isAnalysisLoading}
+                className="px-5 py-2.5 rounded-2xl bg-accent/20 hover:bg-accent/30 text-accent font-bold text-xs border border-accent/30 flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+              >
+                {isAnalysisLoading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin text-accent" />Analyzing Match...</>
+                ) : (
+                  <><Sparkles className="w-4 h-4" />Generate AI Analysis</>
+                )}
+              </button>
+            )}
+          </div>
+
+          {analysisError && <div className="p-3 rounded-xl bg-error/10 border border-error/20 text-xs text-error">{analysisError}</div>}
+
+          {analysisText && (
+            <div className="p-5 rounded-2xl bg-surface/70 border border-border-light text-sm space-y-4 whitespace-pre-wrap leading-relaxed">
+              {analysisText}
+            </div>
+          )}
         </motion.div>
 
         {/* Question Breakdown */}
