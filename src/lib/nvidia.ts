@@ -38,7 +38,15 @@ function buildPrompt(avoidQuestionTexts: string[]): string {
           .join("\n")}\n`
       : "";
 
-  return `${avoidSection}Generate exactly 10 concise computer science MCQs for a 1v1 quiz duel. Cover DSA, OOP, DBMS, OS, and CN. Return one compact JSON array only, minified on a single line, with objects like {"question":"...","options":["...","...","...","..."],"correctAnswer":"A"}. Keep question and option text short. Use exactly 4 options. correctAnswer must be A, B, C, or D.`;
+  return `${avoidSection}Generate exactly 10 concise, high-quality Computer Science MCQs for a 1v1 quiz duel.
+Cover core topics: Data Structures & Algorithms, Object-Oriented Programming, Database Management Systems, Operating Systems, and Computer Networks.
+
+STRICT ACCURACY RULES:
+1. Each question must be clear, unambiguous, and technically accurate.
+2. Provide exactly 4 options per question (options array of 4 strings).
+3. Option strings must be distinct, plausible technical terms or concepts. DO NOT repeat the question topic/term itself as an option (e.g., if asking about encapsulation, do not use "Encapsulation" as an option).
+4. Double check that "correctAnswer" is exactly "A", "B", "C", or "D", matching the 0-indexed position (A=options[0], B=options[1], C=options[2], D=options[3]) of the single factually correct option.
+5. Return ONLY a single minified raw JSON array of 10 objects: [{"question":"...","options":["...","...","...","..."],"correctAnswer":"A"}] with no markdown wrappers or extra text.`;
 }
 
 function extractJsonArray(rawContent: string): string {
@@ -76,6 +84,11 @@ function hasDuplicates(questions: MCQQuestion[], avoidQuestionTexts: string[]): 
 function buildMessages(prompt: string) {
   return [
     {
+      role: "system",
+      content:
+        "You are an expert Computer Science professor creating high-quality, technically accurate multiple-choice questions for a competitive duel. You ensure that all questions are factually correct, all 4 options are distinct, clear, and plausible, and that the correctAnswer letter (A, B, C, or D) strictly corresponds to the single correct option index.",
+    },
+    {
       role: "user",
       content: `Return only valid raw JSON. No markdown. No code fences. No explanation.\n\n${prompt}`,
     },
@@ -86,15 +99,15 @@ const MODEL_ATTEMPTS: ModelAttempt[] = [
   {
     model: "meta/llama-3.1-8b-instruct",
     timeoutMs: 24000,
-    maxTokens: 1000,
-    temperature: 0.3,
+    maxTokens: 1200,
+    temperature: 0.15,
     topP: 0.85,
   },
   {
     model: "meta/llama-3.3-70b-instruct",
     timeoutMs: 26000,
-    maxTokens: 1000,
-    temperature: 0.3,
+    maxTokens: 1200,
+    temperature: 0.15,
     topP: 0.85,
   },
 ];
