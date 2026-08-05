@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 require("dotenv").config();
+require("dotenv").config({ path: "../.env.local" });
+require("dotenv").config({ path: "../.env" });
+
 const express = require("express");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
@@ -9,6 +12,7 @@ const { verifyToken } = require("@clerk/backend");
 const port = process.env.PORT || 3001;
 const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
 const socketInternalSecret = process.env.SOCKET_INTERNAL_SECRET;
+
 
 // Log config on startup so Render logs show exactly what URLs are in use
 console.log(`[Config] App URL: ${appUrl}`);
@@ -26,7 +30,11 @@ const allowedOrigins = Array.from(
 
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin || allowedOrigins.some(o => origin.startsWith(o))) {
+    if (
+      !origin ||
+      allowedOrigins.some(o => origin.startsWith(o) || o.startsWith(origin.replace(/\/$/, ""))) ||
+      origin.endsWith(".vercel.app")
+    ) {
       callback(null, true);
       return;
     }
@@ -61,6 +69,7 @@ app.get("/health", (req, res) => {
 // In-memory room state for timer management
 const roomTimers = new Map();
 const roomStates = new Map();
+const startingRooms = new Set();
 
 // Matchmaking Queue
 let matchmakingQueue = [];
@@ -141,10 +150,17 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (matchmakingQueue.length > 0) {
-      // Pop opponent from front of queue
-      const opponentSocket = matchmakingQueue.shift();
+    // Pop next connected opponent from front of queue
+    let opponentSocket = null;
+    while (matchmakingQueue.length > 0) {
+      const candidate = matchmakingQueue.shift();
+      if (candidate && candidate.connected) {
+        opponentSocket = candidate;
+        break;
+      }
+    }
 
+    if (opponentSocket) {
       // Sanity check: don't match with self
       if (opponentSocket.data.clerkUserId === clerkId) {
         console.log(`[Matchmaking] Self-match prevented for ${clerkId}`);
@@ -195,12 +211,13 @@ io.on("connection", (socket) => {
 
     let state = roomStates.get(roomCode);
 
-    // Prevent multiple starts
-    if (state && state.status === "IN_PROGRESS") {
-      console.log(`[Socket] Duel already in progress for room ${roomCode}`);
+    // Prevent multiple starts or concurrent initialization
+    if ((state && state.status === "IN_PROGRESS") || startingRooms.has(roomCode)) {
+      console.log(`[Socket] Duel already starting/in progress for room ${roomCode}`);
       return;
     }
 
+    startingRooms.add(roomCode);
     console.log(`[Socket] Starting duel in room ${roomCode} (ID: ${roomId})`);
 
     try {
@@ -231,6 +248,8 @@ io.on("connection", (socket) => {
       io.to(roomCode).emit("room-error", {
         message: error instanceof Error ? error.message : "Failed to start duel. Please try again.",
       });
+    } finally {
+      startingRooms.delete(roomCode);
     }
   });
 

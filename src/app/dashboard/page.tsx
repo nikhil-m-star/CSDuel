@@ -5,7 +5,7 @@ import { useUser, useAuth } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, ArrowRight, Users, Zap, Loader2, Globe } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import { connectSocket, disconnectSocket } from "@/lib/socket";
+import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
 
 export default function DashboardPage() {
   const { user: clerkUser } = useUser();
@@ -90,6 +90,10 @@ export default function DashboardPage() {
 
   const cancelMatch = () => {
     setIsQueuing(false);
+    const s = getSocket();
+    if (s?.connected) {
+      s.emit("cancel-match");
+    }
     disconnectSocket();
   };
 
