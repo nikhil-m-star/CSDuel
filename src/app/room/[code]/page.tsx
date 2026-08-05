@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { Copy, Check, Users, Loader2, Swords, Timer, Zap } from "lucide-react";
+import { Copy, Check, Users, Loader2, Swords, Timer, Zap, RefreshCw } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
 import { calculateScore } from "@/lib/utils";
@@ -167,6 +167,7 @@ export default function RoomPage() {
       });
       socket.on("duel-end",(data:{roomId:string})=>{setPhase("finished");setTimeout(()=>router.push(`/results/${data.roomId}`),2000);});
       socket.on("room-error",(data:{message?:string})=>{
+        autoStartTriggeredRef.current = false;
         setIsGenerating(false);
         setError(data.message || "Failed to start duel");
       });
@@ -184,6 +185,7 @@ export default function RoomPage() {
     try {
       socketRef.current?.emit("start-duel",{roomCode:code,roomId:roomData?.id});
     } catch {
+      autoStartTriggeredRef.current = false;
       setIsGenerating(false);
     }
   };
@@ -200,6 +202,17 @@ export default function RoomPage() {
     setIsGenerating(true);
     socketRef.current?.emit("start-duel",{roomCode:code,roomId:roomData?.id});
   }, [isAutoStartMatch, roomData, clerkUser?.id, isSocketReady, isGenerating, code]);
+
+  // Safety timeout if question generation hangs
+  useEffect(() => {
+    if (!isGenerating) return;
+    const timer = setTimeout(() => {
+      autoStartTriggeredRef.current = false;
+      setIsGenerating(false);
+      setError("Question generation timed out. Please try starting again.");
+    }, 20000);
+    return () => clearTimeout(timer);
+  }, [isGenerating]);
 
   // Countdown
   useEffect(()=>{
@@ -299,7 +312,7 @@ export default function RoomPage() {
               )}
             </div>
           </div>
-          {!isAutoStartMatch && (roomData?.players?.length || 0) >= 2 && (
+          {(roomData?.players?.length || 0) >= 2 && (
             roomData?.hostClerkId === clerkUser?.id ? (
               <button 
                 onClick={startDuel} 
@@ -307,21 +320,22 @@ export default function RoomPage() {
                 className="mt-8 px-8 py-4 rounded-3xl bg-primary text-white font-bold hover:bg-primary-dark disabled:opacity-50 flex items-center gap-2 mx-auto cursor-pointer transition-all shadow-[0_0_30px_rgba(255,46,91,0.2)]"
               >
                 {isGenerating ? (
-                  <><Loader2 className="w-5 h-5 animate-spin"/>Generating Questions...</>
+                  <><Loader2 className="w-5 h-5 animate-spin"/>{isAutoStartMatch ? "Preparing Duel..." : "Generating Questions..."}</>
+                ) : error ? (
+                  <><RefreshCw className="w-5 h-5"/>Retry Starting Duel</>
                 ) : (
                   <><Zap className="w-5 h-5"/>Start Duel</>
                 )}
               </button>
             ) : (
-              <div className="mt-8 p-4 rounded-2xl bg-surface/50 border border-border/50 text-text-secondary text-sm font-medium">
-                Waiting for host to start the duel...
+              <div className="mt-8 p-4 rounded-2xl bg-surface/50 border border-border/50 text-text-secondary text-sm font-medium flex items-center justify-center gap-2">
+                {isGenerating ? (
+                  <><Loader2 className="w-4 h-4 text-primary animate-spin"/>Preparing duel questions...</>
+                ) : (
+                  "Waiting for host to start the duel..."
+                )}
               </div>
             )
-          )}
-          {isAutoStartMatch && (roomData?.players?.length || 0) >= 2 && (
-            <div className="mt-8 p-4 rounded-2xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
-              Starting duel automatically...
-            </div>
           )}
         </motion.div>
       </main>

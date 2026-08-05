@@ -198,7 +198,7 @@ io.on("connection", (socket) => {
 
     } catch (error) {
       console.error("[Socket] Start duel error:", error);
-      socket.emit("room-error", {
+      io.to(roomCode).emit("room-error", {
         message: error instanceof Error ? error.message : "Failed to start duel. Please try again.",
       });
     }
